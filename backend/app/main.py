@@ -12,14 +12,14 @@ app = FastAPI()
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-        "http://localhost:3000",  # For local development
-        "https://*.vercel.app",   # For Vercel deployments
+        "http://localhost:3000",  # Local development
+        "https://ai-saas-fawn-kappa.vercel.app",  # Your Vercel app
+        "https://*.vercel.app",  # All Vercel preview deployments
     ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
 # Initialize Supabase
 supabase = create_client(settings.supabase_url, settings.supabase_key)
 
