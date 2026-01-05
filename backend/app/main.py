@@ -71,14 +71,7 @@ async def generate_ai_content(
         )
         
         result = response.choices[0].message.content
-        
-        # Optional: Log usage to Supabase
-        supabase.table('usage_logs').insert({
-            'user_id': current_user.id,
-            'prompt': request.prompt,
-            'tokens_used': response.usage.total_tokens
-        }).execute()
-        
+
         return AIResponse(result=result)
         
     except Exception as e:
