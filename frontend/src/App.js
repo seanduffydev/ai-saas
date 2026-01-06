@@ -7,6 +7,8 @@ import CommoditySelector from './components/CommoditySelector';
 import ForecastChart from './components/ForecastChart';
 import MetricsDisplay from './components/MetricsDisplay';
 import LoadingSpinner from './components/LoadingSpinner';
+import ComparisonChart from './components/ComparisonChart';
+import ComparisonMetrics from './components/ComparisonMetrics';
 
 function App() {
   const [user, setUser] = useState(null);
@@ -22,6 +24,9 @@ function App() {
   const [loadingMessage, setLoadingMessage] = useState('');
   const [forecastData, setForecastData] = useState(null);
   const [error, setError] = useState(null);
+  const [modelMode, setModelMode] = useState('single');
+  const [selectedModel, setSelectedModel] = useState('lstm');
+  const [comparisonData, setComparisonData] = useState(null);
 
   const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 
@@ -39,7 +44,7 @@ function App() {
   }, []);
 
   // Load commodities when user logs in
-// Load commodities when user logs in
+  // Load commodities when user logs in
   useEffect(() => {
     if (user) {
       loadCommodities();
@@ -92,13 +97,14 @@ function App() {
     setLoading(true);
     setError(null);
     setForecastData(null);
+    setComparisonData(null);
     setLoadingMessage('Fetching historical data...');
 
     try {
       const session = await supabase.auth.getSession();
       const token = session.data.session?.access_token;
 
-      setLoadingMessage('Training LSTM model...');
+      setLoadingMessage(`Training ${selectedModel.toUpperCase()} model...`);
 
       const response = await axios.post(
         `${API_URL}/api/forecast`,
@@ -117,10 +123,56 @@ function App() {
 
       setLoadingMessage('Generating predictions...');
       setForecastData(response.data);
-      
+
     } catch (error) {
       console.error('Error generating forecast:', error);
       setError(error.response?.data?.detail || 'Failed to generate forecast');
+    } finally {
+      setLoading(false);
+      setLoadingMessage('');
+    }
+  };
+
+  const handleCompareModels = async () => {
+    if (!selectedCommodity) {
+      setError('Please select a commodity');
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+    setForecastData(null);
+    setComparisonData(null);
+    setLoadingMessage('Fetching historical data...');
+
+    try {
+      const session = await supabase.auth.getSession();
+      const token = session.data.session?.access_token;
+
+      setLoadingMessage('Training both LSTM and Transformer models...');
+      setLoadingMessage('This may take 1-2 minutes...');
+
+      const response = await axios.post(
+        `${API_URL}/api/forecast-compare`,
+        {
+          commodity: selectedCommodity,
+          forecast_days: forecastDays,
+          window_size: 60,
+          period: '2y'
+        },
+        {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        }
+      );
+
+      setLoadingMessage('Generating comparison...');
+      setComparisonData(response.data);
+
+    } catch (error) {
+      console.error('Error comparing models:', error);
+      setError(error.response?.data?.detail || 'Failed to compare models');
     } finally {
       setLoading(false);
       setLoadingMessage('');
@@ -134,9 +186,9 @@ function App() {
         <div className="auth-container">
           <h1>📈 Commodity Forecasting Lab</h1>
           <p className="subtitle">AI-Powered LSTM Price Predictions</p>
-          
+
           {error && <div className="error-message">{error}</div>}
-          
+
           <form onSubmit={isSignUp ? handleSignUp : handleSignIn}>
             <input
               type="email"
@@ -211,18 +263,52 @@ function App() {
             </select>
           </div>
 
+          <div className="forecast-controls">
+            <label htmlFor="model-mode">Prediction Mode:</label>
+            <select
+              id="model-mode"
+              value={modelMode}
+              onChange={(e) => {
+                setModelMode(e.target.value);
+                setForecastData(null);
+                setComparisonData(null);
+              }}
+              disabled={loading}
+            >
+              <option value="single">Single Model</option>
+              <option value="compare">Compare Models</option>
+            </select>
+          </div>
+
+          {modelMode === 'single' && (
+            <div className="forecast-controls">
+              <label htmlFor="model-select">AI Model:</label>
+              <select
+                id="model-select"
+                value={selectedModel}
+                onChange={(e) => setSelectedModel(e.target.value)}
+                disabled={loading}
+              >
+                <option value="lstm">LSTM</option>
+                <option value="transformer">Transformer</option>
+              </select>
+            </div>
+          )}
+
           <button
-            onClick={handleGenerateForecast}
+            onClick={modelMode === 'compare' ? handleCompareModels : handleGenerateForecast}
             disabled={!selectedCommodity || loading}
             className="generate-button"
           >
-            {loading ? '⏳ Generating...' : '🚀 Generate Forecast'}
+            {loading ? '⏳ Generating...' :
+              modelMode === 'compare' ? '⚡ Compare Models' : '🚀 Generate Forecast'}
           </button>
         </div>
 
         {loading && <LoadingSpinner message={loadingMessage} />}
 
-        {forecastData && !loading && (
+        {/* Single Model Results */}
+        {forecastData && !loading && !comparisonData && (
           <div className="results-section">
             <ForecastChart
               historicalData={forecastData.historical_data}
@@ -267,11 +353,64 @@ function App() {
           </div>
         )}
 
-        {!forecastData && !loading && (
-          <div className="empty-state">
-            <p>👆 Select a commodity and click "Generate Forecast" to see AI predictions</p>
+        {/* Comparison Results */}
+        {comparisonData && !loading && (
+          <div className="results-section">
+            <ComparisonChart
+              historicalData={comparisonData.historical_data}
+              lstmPredictions={comparisonData.lstm_predictions}
+              transformerPredictions={comparisonData.transformer_predictions}
+              commodityInfo={comparisonData.commodity_info}
+            />
+
+            <ComparisonMetrics
+              lstmMetrics={comparisonData.lstm_metrics}
+              transformerMetrics={comparisonData.transformer_metrics}
+              modelComparison={comparisonData.model_comparison}
+              lstmPredictions={comparisonData.lstm_predictions}
+              transformerPredictions={comparisonData.transformer_predictions}
+            />
+
+            <div className="predictions-comparison-table">
+              <h3>📋 Side-by-Side Predictions</h3>
+              <div className="table-container">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Day</th>
+                      <th>Date</th>
+                      <th>LSTM Price</th>
+                      <th>Transformer Price</th>
+                      <th>Difference</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {comparisonData.lstm_predictions.slice(0, 10).map((pred, idx) => {
+                      const transformerPred = comparisonData.transformer_predictions[idx];
+                      const diff = Math.abs(pred.price - transformerPred.price);
+                      return (
+                        <tr key={idx}>
+                          <td>+{pred.day}</td>
+                          <td>{pred.date}</td>
+                          <td>${pred.price.toFixed(2)}</td>
+                          <td>${transformerPred.price.toFixed(2)}</td>
+                          <td>${diff.toFixed(2)}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
           </div>
         )}
+
+        {!forecastData && !comparisonData && !loading && (
+          <div className="empty-state">
+            <p>👆 Select a commodity and click "Generate Forecast" or "Compare Models" to see AI predictions</p>
+          </div>
+        )}
+
       </main>
     </div>
   );
