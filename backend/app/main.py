@@ -6,9 +6,11 @@ from typing import List
 from datetime import timedelta
 from supabase import create_client
 import pandas as pd
+import numpy as np
 
 from app.data.fetchers.yahoo_fetcher import YahooFetcher
 from app.models.lstm_forecaster import LSTMForecaster
+from app.models.transformer_forecaster import TransformerForecaster
 from app.config import settings
 
 app = FastAPI(title="Commodity Forecasting Lab", version="1.0.0")
@@ -198,6 +200,113 @@ async def create_forecast(
                 'epochs': train_metrics['epochs']
             }
         )
+        
+    except Exception as e:
+        print(f"\nError: {str(e)}\n")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/forecast-compare")
+async def compare_forecasts(
+    request: ForecastRequest,
+    current_user = Depends(get_current_user)
+):
+    """Generate forecasts using both LSTM and Transformer models"""
+    try:
+        print(f"\n{'='*50}")
+        print(f"Comparison forecast for {request.commodity}")
+        print(f"{'='*50}\n")
+        
+        # Fetch data
+        df = YahooFetcher.fetch_historical(request.commodity, period=request.period)
+        prices = df['close'].tolist()
+        dates = df['date'].tolist()
+        
+        print(f"Loaded {len(prices)} historical prices")
+        
+        # Train LSTM
+        print("\n--- Training LSTM ---")
+        lstm_forecaster = LSTMForecaster(
+            window_size=request.window_size,
+            forecast_horizon=request.forecast_days
+        )
+        lstm_metrics = lstm_forecaster.train(prices, epochs=50)
+        print(f"LSTM training completed in {lstm_metrics['training_time']:.2f}s")
+        
+        # Train Transformer
+        print("\n--- Training Transformer ---")
+        transformer_forecaster = TransformerForecaster(
+            window_size=request.window_size,
+            forecast_horizon=request.forecast_days
+        )
+        transformer_metrics = transformer_forecaster.train(prices, epochs=50)
+        print(f"Transformer training completed in {transformer_metrics['training_time']:.2f}s")
+        
+        # Generate predictions
+        print(f"\nGenerating predictions...")
+        recent_prices = prices[-request.window_size:]
+        
+        lstm_predictions = lstm_forecaster.predict(recent_prices)
+        transformer_predictions = transformer_forecaster.predict(recent_prices)
+        
+        # Future dates
+        last_date = dates[-1]
+        future_dates = []
+        for i in range(1, request.forecast_days + 1):
+            future_date = last_date + timedelta(days=i)
+            future_dates.append(future_date.strftime('%Y-%m-%d'))
+        
+        # Format historical data
+        historical_data = []
+        display_count = min(100, len(prices))
+        for i in range(len(prices) - display_count, len(prices)):
+            historical_data.append({
+                'date': dates[i].strftime('%Y-%m-%d'),
+                'price': float(prices[i])
+            })
+        
+        # Format predictions
+        lstm_prediction_data = []
+        transformer_prediction_data = []
+        
+        for i, (date, lstm_price, trans_price) in enumerate(zip(future_dates, lstm_predictions, transformer_predictions)):
+            lstm_prediction_data.append({
+                'date': date,
+                'price': float(lstm_price),
+                'day': i + 1
+            })
+            transformer_prediction_data.append({
+                'date': date,
+                'price': float(trans_price),
+                'day': i + 1
+            })
+        
+        commodity_info = YahooFetcher.get_info(request.commodity)
+        
+        print(f"\nComparison completed!\n")
+        
+        return {
+            "commodity": request.commodity,
+            "commodity_info": commodity_info,
+            "historical_data": historical_data,
+            "lstm_predictions": lstm_prediction_data,
+            "transformer_predictions": transformer_prediction_data,
+            "lstm_metrics": {
+                'training_loss': lstm_metrics['final_loss'],
+                'training_time': lstm_metrics['training_time'],
+                'data_points_used': len(prices)
+            },
+            "transformer_metrics": {
+                'training_loss': transformer_metrics['final_loss'],
+                'training_time': transformer_metrics['training_time'],
+                'data_points_used': len(prices)
+            },
+            "model_comparison": {
+                'lstm_avg_price': float(np.mean(lstm_predictions)),
+                'transformer_avg_price': float(np.mean(transformer_predictions)),
+                'difference': float(abs(np.mean(lstm_predictions) - np.mean(transformer_predictions)))
+            }
+        }
         
     except Exception as e:
         print(f"\nError: {str(e)}\n")
