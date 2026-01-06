@@ -1,159 +1,280 @@
-import { useState, useEffect } from 'react'
-import { supabase } from './supabaseClient'
-import axios from 'axios'
-import './App.css'
+import { useState, useEffect } from 'react';
+import { supabase } from './supabaseClient';
+import axios from 'axios';
+import './App.css';
+
+import CommoditySelector from './components/CommoditySelector';
+import ForecastChart from './components/ForecastChart';
+import MetricsDisplay from './components/MetricsDisplay';
+import LoadingSpinner from './components/LoadingSpinner';
 
 function App() {
-  const [user, setUser] = useState(null)
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [prompt, setPrompt] = useState('')
-  const [result, setResult] = useState('')
-  const [loading, setLoading] = useState(false)
-  const [isSignUp, setIsSignUp] = useState(false)
+  const [user, setUser] = useState(null);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [isSignUp, setIsSignUp] = useState(false);
 
+  // Commodity forecasting state
+  const [commodities, setCommodities] = useState([]);
+  const [selectedCommodity, setSelectedCommodity] = useState('');
+  const [forecastDays, setForecastDays] = useState(30);
+  const [loading, setLoading] = useState(false);
+  const [loadingMessage, setLoadingMessage] = useState('');
+  const [forecastData, setForecastData] = useState(null);
+  const [error, setError] = useState(null);
+
+  const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
+
+  // Check authentication
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null)
-    })
+      setUser(session?.user ?? null);
+    });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null)
-    })
+      setUser(session?.user ?? null);
+    });
 
-    return () => subscription.unsubscribe()
-  }, [])
+    return () => subscription.unsubscribe();
+  }, []);
+
+  // Load commodities when user logs in
+// Load commodities when user logs in
+  useEffect(() => {
+    if (user) {
+      loadCommodities();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user]);
+
+  const loadCommodities = async () => {
+    try {
+      const response = await axios.get(`${API_URL}/api/commodities`);
+      setCommodities(response.data.commodities);
+    } catch (error) {
+      console.error('Error loading commodities:', error);
+      setError('Failed to load commodities');
+    }
+  };
 
   const handleSignUp = async (e) => {
-    e.preventDefault()
-    const { error } = await supabase.auth.signUp({ email, password })
-    if (error) alert(error.message)
-    else alert('Check your email for confirmation!')
-  }
+    e.preventDefault();
+    setError(null);
+    const { error } = await supabase.auth.signUp({ email, password });
+    if (error) {
+      setError(error.message);
+    } else {
+      alert('Check your email for confirmation!');
+    }
+  };
 
   const handleSignIn = async (e) => {
-    e.preventDefault()
-    const { error } = await supabase.auth.signInWithPassword({ email, password })
-    if (error) alert(error.message)
-  }
+    e.preventDefault();
+    setError(null);
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) {
+      setError(error.message);
+    }
+  };
 
   const handleSignOut = async () => {
-    await supabase.auth.signOut()
-    setResult('')
-    setPrompt('')
-  }
+    await supabase.auth.signOut();
+    setForecastData(null);
+    setSelectedCommodity('');
+  };
 
-  const handleGenerate = async () => {
-    if (!prompt.trim()) {
-      alert('Please enter a prompt')
-      return
+  const handleGenerateForecast = async () => {
+    if (!selectedCommodity) {
+      setError('Please select a commodity');
+      return;
     }
 
-    setLoading(true)
-    setResult('')
-    
+    setLoading(true);
+    setError(null);
+    setForecastData(null);
+    setLoadingMessage('Fetching historical data...');
+
     try {
-      const session = await supabase.auth.getSession()
-      const token = session.data.session?.access_token
+      const session = await supabase.auth.getSession();
+      const token = session.data.session?.access_token;
+
+      setLoadingMessage('Training LSTM model...');
 
       const response = await axios.post(
-        `${process.env.REACT_APP_API_URL}/api/generate`,
-        { prompt },
+        `${API_URL}/api/forecast`,
+        {
+          commodity: selectedCommodity,
+          forecast_days: forecastDays,
+          window_size: 60,
+          period: '2y'
+        },
         {
           headers: {
             'Authorization': `Bearer ${token}`
           }
         }
-      )
+      );
 
-      setResult(response.data.result)
+      setLoadingMessage('Generating predictions...');
+      setForecastData(response.data);
+      
     } catch (error) {
-      alert('Error: ' + (error.response?.data?.detail || error.message))
+      console.error('Error generating forecast:', error);
+      setError(error.response?.data?.detail || 'Failed to generate forecast');
+    } finally {
+      setLoading(false);
+      setLoadingMessage('');
     }
-    
-    setLoading(false)
-  }
+  };
 
+  // Login/Signup UI
   if (!user) {
     return (
       <div className="App">
-        <h1>🤖 AI SaaS</h1>
-        <p style={{ textAlign: 'center', color: '#666', marginBottom: '30px' }}>
-          {isSignUp ? 'Create your account' : 'Sign in to continue'}
-        </p>
-        
-        <form onSubmit={isSignUp ? handleSignUp : handleSignIn}>
-          <input
-            type="email"
-            placeholder="Email address"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-          />
-          <input
-            type="password"
-            placeholder="Password (min 6 characters)"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-          />
-          <button type="submit">
-            {isSignUp ? 'Sign Up' : 'Sign In'}
-          </button>
-        </form>
+        <div className="auth-container">
+          <h1>📈 Commodity Forecasting Lab</h1>
+          <p className="subtitle">AI-Powered LSTM Price Predictions</p>
+          
+          {error && <div className="error-message">{error}</div>}
+          
+          <form onSubmit={isSignUp ? handleSignUp : handleSignIn}>
+            <input
+              type="email"
+              placeholder="Email address"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+            />
+            <input
+              type="password"
+              placeholder="Password (min 6 characters)"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+            />
+            <button type="submit" className="primary-button">
+              {isSignUp ? 'Sign Up' : 'Sign In'}
+            </button>
+          </form>
 
-        <div className="auth-toggle">
-          {isSignUp ? 'Already have an account?' : "Don't have an account?"}
-          {' '}
-          <button onClick={() => setIsSignUp(!isSignUp)}>
-            {isSignUp ? 'Sign In' : 'Sign Up'}
-          </button>
+          <div className="auth-toggle">
+            {isSignUp ? 'Already have an account?' : "Don't have an account?"}
+            {' '}
+            <button onClick={() => setIsSignUp(!isSignUp)} className="link-button">
+              {isSignUp ? 'Sign In' : 'Sign Up'}
+            </button>
+          </div>
         </div>
       </div>
-    )
+    );
   }
 
+  // Main forecasting UI
   return (
     <div className="App">
-      <h1>🤖 AI Content Generator</h1>
-      
-      <div className="user-info">
-        <p>Logged in as: <strong>{user.email}</strong></p>
-        <button className="sign-out-button" onClick={handleSignOut}>
-          Sign Out
-        </button>
-      </div>
-
-      <div className="generator-section">
-        <h2>Generate AI Content</h2>
-        <textarea
-          placeholder="Enter your prompt here... (e.g., 'Write a short story about a robot learning to paint')"
-          value={prompt}
-          onChange={(e) => setPrompt(e.target.value)}
-        />
-        <button 
-          className="primary-button"
-          onClick={handleGenerate} 
-          disabled={loading}
-        >
-          {loading ? '✨ Generating...' : '✨ Generate'}
-        </button>
-      </div>
-
-      {loading && (
-        <div className="loading">
-          <p>AI is thinking...</p>
+      <header className="app-header">
+        <div className="header-content">
+          <h1>📈 Commodity Forecasting Lab</h1>
+          <div className="user-info">
+            <span>{user.email}</span>
+            <button onClick={handleSignOut} className="sign-out-button">
+              Sign Out
+            </button>
+          </div>
         </div>
-      )}
+      </header>
 
-      {result && (
-        <div className="result-container">
-          <h3>✅ Generated Result:</h3>
-          <p>{result}</p>
+      <main className="main-content">
+        {error && <div className="error-message">{error}</div>}
+
+        <div className="controls-section">
+          <CommoditySelector
+            commodities={commodities}
+            selectedCommodity={selectedCommodity}
+            onSelect={setSelectedCommodity}
+            disabled={loading}
+          />
+
+          <div className="forecast-controls">
+            <label htmlFor="forecast-days">Forecast Horizon:</label>
+            <select
+              id="forecast-days"
+              value={forecastDays}
+              onChange={(e) => setForecastDays(Number(e.target.value))}
+              disabled={loading}
+            >
+              <option value={7}>7 days</option>
+              <option value={14}>14 days</option>
+              <option value={30}>30 days</option>
+              <option value={60}>60 days</option>
+              <option value={90}>90 days</option>
+            </select>
+          </div>
+
+          <button
+            onClick={handleGenerateForecast}
+            disabled={!selectedCommodity || loading}
+            className="generate-button"
+          >
+            {loading ? '⏳ Generating...' : '🚀 Generate Forecast'}
+          </button>
         </div>
-      )}
+
+        {loading && <LoadingSpinner message={loadingMessage} />}
+
+        {forecastData && !loading && (
+          <div className="results-section">
+            <ForecastChart
+              historicalData={forecastData.historical_data}
+              predictions={forecastData.predictions}
+              commodityInfo={forecastData.commodity_info}
+            />
+
+            <MetricsDisplay
+              metrics={forecastData.metrics}
+              modelInfo={forecastData.model_info}
+              predictions={forecastData.predictions}
+            />
+
+            <div className="predictions-table">
+              <h3>📋 Predicted Prices</h3>
+              <div className="table-container">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Day</th>
+                      <th>Date</th>
+                      <th>Predicted Price</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {forecastData.predictions.slice(0, 10).map((pred, idx) => (
+                      <tr key={idx}>
+                        <td>+{pred.day}</td>
+                        <td>{pred.date}</td>
+                        <td>${pred.price.toFixed(2)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              {forecastData.predictions.length > 10 && (
+                <p className="table-note">
+                  Showing first 10 of {forecastData.predictions.length} predictions
+                </p>
+              )}
+            </div>
+          </div>
+        )}
+
+        {!forecastData && !loading && (
+          <div className="empty-state">
+            <p>👆 Select a commodity and click "Generate Forecast" to see AI predictions</p>
+          </div>
+        )}
+      </main>
     </div>
-  )
+  );
 }
 
-export default App
+export default App;
