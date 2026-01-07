@@ -2,7 +2,7 @@ from fastapi import FastAPI, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel
-from typing import List
+from typing import List, Optional
 from datetime import timedelta
 from supabase import create_client
 import pandas as pd
@@ -11,6 +11,8 @@ import numpy as np
 from app.data.fetchers.yahoo_fetcher import YahooFetcher
 from app.models.lstm_forecaster import LSTMForecaster
 from app.models.transformer_forecaster import TransformerForecaster
+from app.data.fetchers.alpha_vantage_news import AlphaVantageNewsFetcher
+from app.utils.news_cache import NewsCache
 from app.config import settings
 
 app = FastAPI(title="Commodity Forecasting Lab", version="1.0.0")
@@ -310,4 +312,104 @@ async def compare_forecasts(
         
     except Exception as e:
         print(f"\nError: {str(e)}\n")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/news/{commodity}")
+def get_commodity_news(commodity: str, limit: int = 10, force_refresh: bool = False):
+    """Get news for specific commodity (with caching!)"""
+    try:
+        # Initialize cache
+        cache = NewsCache(supabase)
+        
+        # Try to get from cache first (unless force refresh)
+        if not force_refresh:
+            cached_articles = cache.get_cached_news(commodity)
+            if cached_articles:
+                return {
+                    "commodity": commodity,
+                    "articles": cached_articles[:limit],
+                    "count": len(cached_articles[:limit]),
+                    "source": "cache",
+                    "cached": True
+                }
+        
+        # Cache miss or force refresh - fetch from API
+        print(f"Fetching fresh news for {commodity} from Alpha Vantage...")
+        articles = AlphaVantageNewsFetcher.fetch_news(
+            commodity=commodity,
+            api_key=settings.alpha_vantage_api_key,
+            limit=limit
+        )
+        
+        # Cache the results
+        if articles:
+            cache.cache_news(commodity, articles, source='alpha_vantage')
+        
+        return {
+            "commodity": commodity,
+            "articles": articles,
+            "count": len(articles),
+            "source": "alpha_vantage",
+            "cached": False
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/news")
+def get_general_news(limit: int = 20, force_refresh: bool = False):
+    """Get general commodity market news (with caching!)"""
+    try:
+        # Use 'all' as the cache key for general news
+        cache = NewsCache(supabase)
+        
+        # Try cache first
+        if not force_refresh:
+            cached_articles = cache.get_cached_news('all')
+            if cached_articles:
+                return {
+                    "articles": cached_articles[:limit],
+                    "count": len(cached_articles[:limit]),
+                    "source": "cache",
+                    "cached": True
+                }
+        
+        # Fetch fresh
+        print("Fetching fresh general news from Alpha Vantage...")
+        articles = AlphaVantageNewsFetcher.fetch_general_news(
+            api_key=settings.alpha_vantage_api_key,
+            limit=limit
+        )
+        
+        # Cache
+        if articles:
+            cache.cache_news('all', articles, source='alpha_vantage')
+        
+        return {
+            "articles": articles,
+            "count": len(articles),
+            "source": "alpha_vantage",
+            "cached": False
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/news/cache/stats")
+def get_cache_stats():
+    """Get cache statistics (admin endpoint)"""
+    try:
+        cache = NewsCache(supabase)
+        stats = cache.get_cache_stats()
+        return stats
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/news/cache/clear")
+def clear_news_cache(commodity: Optional[str] = None):
+    """Clear news cache (admin endpoint)"""
+    try:
+        cache = NewsCache(supabase)
+        cache.clear_cache(commodity)
+        return {"message": f"Cache cleared for {commodity if commodity else 'all commodities'}"}
+    except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

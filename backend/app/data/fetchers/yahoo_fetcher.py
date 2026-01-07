@@ -36,7 +36,6 @@ class YahooFetcher:
         return YahooFetcher.COMMODITY_INFO.get(commodity.lower())
     
     @staticmethod
-    @staticmethod
     def fetch_historical(commodity: str, period: str = '5y') -> pd.DataFrame:
         symbol = YahooFetcher.get_symbol(commodity)
         if not symbol:
@@ -53,7 +52,11 @@ class YahooFetcher:
         
         # Flatten multi-level columns (yfinance sometimes returns these)
         if isinstance(df.columns, pd.MultiIndex):
-            df.columns = [col[0] if col[1] == '' else col[0] for col in df.columns]
+            # Take only the first level of column names
+            df.columns = [col[0] if isinstance(col, tuple) else col for col in df.columns]
+        
+        # Remove any duplicate columns by keeping only the first occurrence
+        df = df.loc[:, ~df.columns.duplicated()]
         
         # Standardize column names to lowercase
         df.columns = [str(col).lower().strip() for col in df.columns]
