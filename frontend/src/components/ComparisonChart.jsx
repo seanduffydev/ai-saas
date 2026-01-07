@@ -34,7 +34,6 @@ function ComparisonChart({ historicalData, lstmPredictions, transformerPredictio
   const lstmDates = lstmPredictions.map(d => d.date);
   const lstmPrices = lstmPredictions.map(d => d.price);
   
-  const transformerDates = transformerPredictions.map(d => d.date);
   const transformerPrices = transformerPredictions.map(d => d.price);
 
   const data = {
