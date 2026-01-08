@@ -78,7 +78,17 @@ class PortfolioPositionResponse(BaseModel):
     current_price: Optional[float]
     current_value: Optional[float]
     profit_loss: Optional[float]
-    profit_loss_percent: Optional[float]   
+    profit_loss_percent: Optional[float]
+
+class WatchlistItem(BaseModel):
+    commodity_id: str
+
+class WatchlistItemResponse(BaseModel):
+    id: str
+    user_id: str
+    commodity_id: str
+    order_index: int
+    added_at: str   
 
 # Helper Function
 
@@ -523,11 +533,93 @@ async def add_position(position: PortfolioPosition, user_id: str):
 @app.delete("/api/portfolio/{position_id}")
 async def delete_position(position_id: str, user_id: str):
     """Delete a portfolio position"""
-    
+
     response = supabase.table("portfolio_positions")\
         .delete()\
         .eq("id", position_id)\
         .eq("user_id", user_id)\
         .execute()
-    
+
     return {"message": "Position deleted successfully"}
+
+
+# Watchlist Endpoints
+
+@app.get("/api/watchlist", response_model=List[WatchlistItemResponse])
+async def get_watchlist(user_id: str):
+    """Get user's watchlist commodities ordered by order_index"""
+
+    response = supabase.table("watchlist_preferences")\
+        .select("*")\
+        .eq("user_id", user_id)\
+        .order("order_index")\
+        .execute()
+
+    return response.data
+
+@app.post("/api/watchlist")
+async def add_to_watchlist(item: WatchlistItem, user_id: str):
+    """Add a commodity to user's watchlist"""
+
+    # Get current max order_index for this user
+    existing = supabase.table("watchlist_preferences")\
+        .select("order_index")\
+        .eq("user_id", user_id)\
+        .order("order_index", desc=True)\
+        .limit(1)\
+        .execute()
+
+    # Calculate next order_index
+    next_order = 0
+    if existing.data and len(existing.data) > 0:
+        next_order = existing.data[0]["order_index"] + 1
+
+    data = {
+        "user_id": user_id,
+        "commodity_id": item.commodity_id,
+        "order_index": next_order
+    }
+
+    try:
+        response = supabase.table("watchlist_preferences").insert(data).execute()
+        return {"message": "Commodity added to watchlist", "data": response.data}
+    except Exception as e:
+        # Handle duplicate commodity error
+        if "duplicate" in str(e).lower() or "unique" in str(e).lower():
+            raise HTTPException(status_code=400, detail="Commodity already in watchlist")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.delete("/api/watchlist/{commodity_id}")
+async def remove_from_watchlist(commodity_id: str, user_id: str):
+    """Remove a commodity from user's watchlist"""
+
+    response = supabase.table("watchlist_preferences")\
+        .delete()\
+        .eq("commodity_id", commodity_id)\
+        .eq("user_id", user_id)\
+        .execute()
+
+    return {"message": "Commodity removed from watchlist"}
+
+@app.post("/api/watchlist/initialize")
+async def initialize_watchlist(user_id: str):
+    """Initialize default watchlist for new user (Gold, Silver, Crude Oil)"""
+
+    # Check if user already has watchlist items
+    existing = supabase.table("watchlist_preferences")\
+        .select("id")\
+        .eq("user_id", user_id)\
+        .execute()
+
+    if existing.data and len(existing.data) > 0:
+        return {"message": "Watchlist already initialized", "items": existing.data}
+
+    # Insert default items
+    default_items = [
+        {"user_id": user_id, "commodity_id": "gold", "order_index": 0},
+        {"user_id": user_id, "commodity_id": "silver", "order_index": 1},
+        {"user_id": user_id, "commodity_id": "crude_oil", "order_index": 2}
+    ]
+
+    response = supabase.table("watchlist_preferences").insert(default_items).execute()
+    return {"message": "Default watchlist initialized", "data": response.data}
