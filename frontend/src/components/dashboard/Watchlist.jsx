@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import './Watchlist.css';
@@ -14,21 +14,7 @@ function Watchlist({ userId }) {
 
   const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 
-  useEffect(() => {
-    loadWatchlist();
-    loadAvailableCommodities();
-  }, [userId]);
-
-  useEffect(() => {
-    if (watchlist.length > 0) {
-      loadPrices();
-      // Refresh prices every 5 minutes
-      const interval = setInterval(loadPrices, 5 * 60 * 1000);
-      return () => clearInterval(interval);
-    }
-  }, [watchlist]);
-
-  const loadWatchlist = async () => {
+  const loadWatchlist = useCallback(async () => {
     try {
       const response = await axios.get(`${API_URL}/api/watchlist?user_id=${userId}`);
 
@@ -44,18 +30,18 @@ function Watchlist({ userId }) {
     } catch (error) {
       console.error('Error loading watchlist:', error);
     }
-  };
+  }, [API_URL, userId]);
 
-  const loadAvailableCommodities = async () => {
+  const loadAvailableCommodities = useCallback(async () => {
     try {
       const response = await axios.get(`${API_URL}/api/commodities`);
       setAvailableCommodities(response.data.commodities);
     } catch (error) {
       console.error('Error loading commodities:', error);
     }
-  };
+  }, [API_URL]);
 
-  const loadPrices = async () => {
+  const loadPrices = useCallback(async () => {
     setLoading(true);
     const priceData = {};
 
@@ -63,12 +49,12 @@ function Watchlist({ userId }) {
       try {
         const response = await axios.get(`${API_URL}/api/prices/${commodity}?period=5d`);
         const data = response.data.data;
-        
+
         if (data && data.length >= 2) {
           const latest = data[data.length - 1];
           const previous = data[data.length - 2];
           const change = ((latest.close - previous.close) / previous.close) * 100;
-          
+
           priceData[commodity] = {
             price: latest.close,
             change: change,
@@ -82,7 +68,21 @@ function Watchlist({ userId }) {
 
     setPrices(priceData);
     setLoading(false);
-  };
+  }, [API_URL, watchlist]);
+
+  useEffect(() => {
+    loadWatchlist();
+    loadAvailableCommodities();
+  }, [loadWatchlist, loadAvailableCommodities]);
+
+  useEffect(() => {
+    if (watchlist.length > 0) {
+      loadPrices();
+      // Refresh prices every 5 minutes
+      const interval = setInterval(loadPrices, 5 * 60 * 1000);
+      return () => clearInterval(interval);
+    }
+  }, [watchlist, loadPrices]);
 
   const handleForecast = (commodity) => {
     navigate('/forecast', { state: { commodity } });
