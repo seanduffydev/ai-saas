@@ -1,8 +1,21 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
+import { supabase } from '../supabaseClient'; // ← ADD THIS IMPORT
 import Watchlist from '../components/dashboard/Watchlist';
 import './DashboardPage.css';
 
 function DashboardPage() {
+  const [user, setUser] = useState(null); // ← ADD THIS
+
+  // Get the current user when component loads
+  useEffect(() => {
+    checkUser();
+  }, []);
+
+  const checkUser = async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    setUser(session?.user || null);
+  };
+
   return (
     <div className="dashboard-page-new">
       <div className="welcome-section-new">
@@ -12,7 +25,7 @@ function DashboardPage() {
 
       <div className="dashboard-grid-new">
         <div className="dashboard-main">
-          <Watchlist />
+          <Watchlist userId={user?.id} /> {/* ← CHANGED THIS LINE */}
         </div>
 
         <div className="dashboard-sidebar">

@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import './Watchlist.css';
 
 function Watchlist({ userId }) {
+  console.log('Watchlist component - userId:', userId);
   const [watchlist, setWatchlist] = useState([]);
   const [prices, setPrices] = useState({});
   const [loading, setLoading] = useState(true);
@@ -15,6 +16,8 @@ function Watchlist({ userId }) {
   const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 
   const loadWatchlist = useCallback(async () => {
+    if (!userId) return;
+
     try {
       const response = await axios.get(`${API_URL}/api/watchlist?user_id=${userId}`);
 
@@ -71,9 +74,11 @@ function Watchlist({ userId }) {
   }, [API_URL, watchlist]);
 
   useEffect(() => {
-    loadWatchlist();
-    loadAvailableCommodities();
-  }, [loadWatchlist, loadAvailableCommodities]);
+    if (userId) {
+      loadWatchlist();
+      loadAvailableCommodities();
+    }
+  }, [userId, loadWatchlist, loadAvailableCommodities]);
 
   useEffect(() => {
     if (watchlist.length > 0) {
