@@ -7,7 +7,7 @@ import Layout from './components/layout/Layout';
 import DashboardPage from './pages/DashboardPage';
 import ForecastPage from './pages/ForecastPage';
 import NewsPage from './pages/NewsPage';
-import PortfolioPage from './pages/PortfolioPage';
+import Portfolio from './pages/Portfolio';
 
 function App() {
   const [user, setUser] = useState(null);
@@ -118,7 +118,7 @@ function App() {
           <Route path="/dashboard" element={<DashboardPage />} />
           <Route path="/forecast" element={<ForecastPage />} />
           <Route path="/news" element={<NewsPage />} />
-          <Route path="/portfolio" element={<PortfolioPage />} />
+          <Route path="/portfolio" element={<Portfolio />} />
           <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Routes>
       </Layout>
