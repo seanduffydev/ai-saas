@@ -3,10 +3,12 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel
 from typing import List, Optional
-from datetime import timedelta
+from datetime import timedelta, date 
 from supabase import create_client
+from decimal import Decimal
 import pandas as pd
 import numpy as np
+import yfinance as yf
 
 from app.data.fetchers.yahoo_fetcher import YahooFetcher
 from app.models.lstm_forecaster import LSTMForecaster
@@ -57,6 +59,42 @@ class ForecastResponse(BaseModel):
     predictions: List[dict]
     metrics: dict
     model_info: dict
+
+class PortfolioPosition(BaseModel):
+    commodity: str
+    quantity: float
+    purchase_price: float
+    purchase_date: date
+    notes: Optional[str] = None
+
+class PortfolioPositionResponse(BaseModel):
+    id: str
+    user_id: str
+    commodity: str
+    quantity: float
+    purchase_price: float
+    purchase_date: date
+    notes: Optional[str]
+    current_price: Optional[float]
+    current_value: Optional[float]
+    profit_loss: Optional[float]
+    profit_loss_percent: Optional[float]   
+
+# Helper Function
+
+def get_ticker_for_commodity(commodity: str) -> str:
+    """Map commodity name to Yahoo Finance ticker"""
+    ticker_map = {
+        "Gold": "GC=F",
+        "Silver": "SI=F",
+        "Crude Oil": "CL=F",
+        "Copper": "HG=F",
+        "Natural Gas": "NG=F",
+        "Platinum": "PL=F",
+        "Wheat": "ZW=F",
+        "Corn": "ZC=F"
+    }
+    return ticker_map.get(commodity, "")
 
 # Routes
 @app.get("/")
@@ -413,3 +451,83 @@ def clear_news_cache(commodity: Optional[str] = None):
         return {"message": f"Cache cleared for {commodity if commodity else 'all commodities'}"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/portfolio", response_model=List[PortfolioPositionResponse])
+async def get_portfolio(user_id: str):
+    """Get all portfolio positions for a user with current prices"""
+    
+    # Fetch positions from Supabase
+    response = supabase.table("portfolio_positions")\
+        .select("*")\
+        .eq("user_id", user_id)\
+        .execute()
+    
+    positions = response.data
+    
+    # Enrich each position with current price data
+    enriched_positions = []
+    
+    for position in positions:
+        # Get current price for the commodity
+        current_price = None
+        try:
+            ticker = get_ticker_for_commodity(position['commodity'])
+            if ticker:
+                df = yf.download(ticker, period='1d', progress=False)
+                if not df.empty:
+                    current_price = float(df['Close'].iloc[-1])
+        except Exception as e:
+            print(f"Error fetching price for {position['commodity']}: {e}")
+        
+        # Calculate metrics
+        quantity = float(position['quantity'])
+        purchase_price = float(position['purchase_price'])
+        purchase_value = quantity * purchase_price
+        
+        current_value = None
+        profit_loss = None
+        profit_loss_percent = None
+        
+        if current_price:
+            current_value = quantity * current_price
+            profit_loss = current_value - purchase_value
+            profit_loss_percent = (profit_loss / purchase_value) * 100
+        
+        enriched_positions.append({
+            **position,
+            "current_price": current_price,
+            "current_value": current_value,
+            "profit_loss": profit_loss,
+            "profit_loss_percent": profit_loss_percent
+        })
+    
+    return enriched_positions
+
+@app.post("/api/portfolio")
+async def add_position(position: PortfolioPosition, user_id: str):
+    """Add a new portfolio position"""
+    
+    data = {
+        "user_id": user_id,
+        "commodity": position.commodity,
+        "quantity": position.quantity,
+        "purchase_price": position.purchase_price,
+        "purchase_date": position.purchase_date.isoformat(),
+        "notes": position.notes
+    }
+    
+    response = supabase.table("portfolio_positions").insert(data).execute()
+    return {"message": "Position added successfully", "data": response.data}
+
+@app.delete("/api/portfolio/{position_id}")
+async def delete_position(position_id: str, user_id: str):
+    """Delete a portfolio position"""
+    
+    response = supabase.table("portfolio_positions")\
+        .delete()\
+        .eq("id", position_id)\
+        .eq("user_id", user_id)\
+        .execute()
+    
+    return {"message": "Position deleted successfully"}
