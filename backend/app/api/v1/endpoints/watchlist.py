@@ -165,6 +165,9 @@ async def initialize_watchlist(
     Creates a default watchlist with three commodities: Gold, Silver, and Crude Oil.
     This is automatically called for new users when they first access their watchlist.
     If the user already has items, this endpoint returns the existing items.
+
+    Note: This is NOT automatically called. Users start with empty watchlists
+    and manually add commodities as needed.
     
     Args:
         user_id: User identifier
