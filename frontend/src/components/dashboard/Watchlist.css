@@ -19,6 +19,62 @@
   font-weight: 600;
 }
 
+/* Period Selector */
+.period-selector {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 20px;
+  padding: 8px;
+  background: #f8f9fa;
+  border-radius: 10px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.period-btn {
+  padding: 8px 14px;
+  background: white;
+  border: 2px solid transparent;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #666;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  min-width: 50px;
+}
+
+.period-btn:hover:not(:disabled):not(.active) {
+  background: #e9ecef;
+  color: #333;
+}
+
+.period-btn.active {
+  background: #667eea;
+  color: white;
+  border-color: #667eea;
+  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+}
+
+.period-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Responsive period selector */
+@media (max-width: 768px) {
+  .period-selector {
+    gap: 4px;
+    padding: 6px;
+  }
+  
+  .period-btn {
+    padding: 6px 10px;
+    font-size: 12px;
+    min-width: 42px;
+  }
+}
+
 .refresh-btn {
   background: none;
   border: none;

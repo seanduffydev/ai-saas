@@ -14,6 +14,11 @@ function Watchlist({ userId }) {
   const [addingCommodity, setAddingCommodity] = useState(false);
   const [removingCommodity, setRemovingCommodity] = useState(null);
   const navigate = useNavigate();
+  const [selectedPeriod, setSelectedPeriod] = useState(() => {
+    // Load from localStorage or default to '1mo'
+    return localStorage.getItem('watchlist_period') || '1mo';
+  });
+
 
   const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 
@@ -43,7 +48,7 @@ function Watchlist({ userId }) {
     }
   }, [API_URL]);
 
-  // Load prices sequentially to avoid ANY closure issues
+  // Load prices sequentially (SAFE VERSION)
   const loadPrices = useCallback(async () => {
     if (watchlist.length === 0) {
       setPrices({});
@@ -55,20 +60,41 @@ function Watchlist({ userId }) {
     try {
       const newPriceData = {};
 
-      // Fetch each commodity one at a time
+      // Fetch each commodity one at a time to avoid closure issues
       for (let i = 0; i < watchlist.length; i++) {
         const commodityId = watchlist[i];
         
         try {
-          const response = await axios.get(`${API_URL}/api/prices/${commodityId}?period=5d`);
+          const response = await axios.get(`${API_URL}/api/prices/${commodityId}?period=${selectedPeriod}`);
           const data = response.data.data;
 
-          if (data && data.length >= 2) {
-            const latest = data[data.length - 1];
-            const previous = data[data.length - 2];
-            const change = ((latest.close - previous.close) / previous.close) * 100;
+          // Check if we have enough data points
+          if (!data || data.length === 0) {
+            console.warn(`No data for ${commodityId} in period ${selectedPeriod}`);
+            continue;
+          }
 
-            // Explicitly set this commodity's data
+          // If only 1 data point, we can't calculate change
+          if (data.length === 1) {
+            const latest = data[0];
+            newPriceData[commodityId] = {
+              price: latest.close,
+              change: 0, // No change calculable
+              info: response.data.commodity_info
+            };
+          } else {
+              // 2+ data points - calculate change from FIRST to LAST
+              const latest = data[data.length - 1];  // Most recent price
+              const earliest = data[0];  // First price in the period
+              const change = ((latest.close - earliest.close) / earliest.close) * 100;
+
+              // DEBUG: Log the dates and prices
+              console.log(`\n📊 ${commodityId.toUpperCase()} (${selectedPeriod})`);
+              console.log(`   Period: ${earliest.date} → ${latest.date}`);
+              console.log(`   Price: $${earliest.close.toFixed(2)} → $${latest.close.toFixed(2)}`);
+              console.log(`   Change: ${change > 0 ? '+' : ''}${change.toFixed(2)}%`);
+              console.log(`   Total data points: ${data.length}`);
+
             newPriceData[commodityId] = {
               price: latest.close,
               change: change,
@@ -88,9 +114,7 @@ function Watchlist({ userId }) {
     } finally {
       setLoadingPrices(false);
     }
-  }, [API_URL, watchlist]);
-
-
+  }, [API_URL, watchlist, selectedPeriod]);
 
   // Initial load
   useEffect(() => {
@@ -139,6 +163,28 @@ function Watchlist({ userId }) {
     };
     return icons[commodity] || '📊';
   };
+
+  // Handle period change
+  const handlePeriodChange = (period) => {
+    setSelectedPeriod(period);
+    localStorage.setItem('watchlist_period', period);
+    // Prices will auto-reload due to useEffect dependency
+  };
+
+  // Get period display name
+  const getPeriodLabel = (period) => {
+    const labels = {
+      '1d': '1D',
+      '5d': '1W',
+      '1mo': '1M',
+      '1y': '1Y',
+      'ytd': 'YTD',
+      '5y': '5Y',
+      'max': 'MAX'
+    };
+    return labels[period] || period.toUpperCase();
+  };
+
 
   // Get suggested commodities for new users
   const getSuggestedCommodities = () => {
@@ -239,8 +285,8 @@ function Watchlist({ userId }) {
       <div className="watchlist-card">
         <div className="watchlist-header">
           <h3>📊 Your Watchlist</h3>
-          <button
-            className="refresh-btn"
+          <button 
+            className="refresh-btn" 
             onClick={loadPrices}
             disabled={loadingPrices}
             title="Refresh prices"
@@ -248,6 +294,22 @@ function Watchlist({ userId }) {
             {loadingPrices ? '⏳' : '🔄'}
           </button>
         </div>
+
+        {/* Period Selector - Only show when watchlist has items */}
+        {watchlist.length > 0 && (
+          <div className="period-selector">
+            {['1d', '5d', '1mo', '1y', '5y', 'max', 'ytd'].map(period => (
+              <button
+                key={period}
+                className={`period-btn ${selectedPeriod === period ? 'active' : ''}`}
+                onClick={() => handlePeriodChange(period)}
+                disabled={loadingPrices}
+              >
+                {getPeriodLabel(period)}
+              </button>
+            ))}
+          </div>
+        )}
 
         {watchlist.length === 0 ? (
           <div className="watchlist-empty">
