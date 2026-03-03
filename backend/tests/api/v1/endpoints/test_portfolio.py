@@ -51,7 +51,9 @@ def test_add_position(client: TestClient, auth_headers):
     assert "message" in data
 
 
-def test_delete_position(client: TestClient, auth_headers, mock_supabase_with_portfolio):
+def test_delete_position(
+    client: TestClient, auth_headers, mock_supabase_with_portfolio
+):
     """DELETE /api/portfolio/{id} returns success."""
     from app.core.database import get_supabase
     from app.main import app
