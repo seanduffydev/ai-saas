@@ -1,6 +1,7 @@
 """Tests for LSTM forecaster model."""
 
 import pytest
+
 from app.models.lstm_forecaster import LSTMForecaster
 
 

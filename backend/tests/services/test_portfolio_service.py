@@ -1,7 +1,7 @@
 """Tests for PortfolioService."""
 
-import pytest
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
+
 import pandas as pd
 
 from app.services.portfolio_service import PortfolioService
@@ -24,7 +24,9 @@ def test_get_current_price_success():
 
 def test_get_current_price_empty_df():
     """get_current_price returns None when no data."""
-    with patch("app.services.portfolio_service.yf.download", return_value=pd.DataFrame()):
+    with patch(
+        "app.services.portfolio_service.yf.download", return_value=pd.DataFrame()
+    ):
         price = PortfolioService.get_current_price("Gold")
     assert price is None
 
@@ -37,7 +39,10 @@ def test_get_current_price_unknown_commodity():
 
 def test_get_current_price_exception():
     """get_current_price returns None on exception."""
-    with patch("app.services.portfolio_service.yf.download", side_effect=Exception("Network error")):
+    with patch(
+        "app.services.portfolio_service.yf.download",
+        side_effect=Exception("Network error"),
+    ):
         price = PortfolioService.get_current_price("Gold")
     assert price is None
 

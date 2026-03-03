@@ -1,6 +1,7 @@
 """Tests for Transformer forecaster model."""
 
 import pytest
+
 from app.models.transformer_forecaster import TransformerForecaster
 
 

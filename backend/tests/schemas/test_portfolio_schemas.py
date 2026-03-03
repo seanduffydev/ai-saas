@@ -1,7 +1,8 @@
 """Tests for portfolio schemas."""
 
 from datetime import date
-from app.schemas.portfolio import PortfolioPositionCreate, PortfolioPosition
+
+from app.schemas.portfolio import PortfolioPosition, PortfolioPositionCreate
 
 
 def test_portfolio_position_create_valid():
@@ -19,6 +20,7 @@ def test_portfolio_position_create_valid():
 
 def test_portfolio_position_create_quantity_validation():
     from pydantic import ValidationError
+
     try:
         PortfolioPositionCreate(
             commodity="Gold",

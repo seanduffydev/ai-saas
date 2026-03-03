@@ -1,16 +1,15 @@
 """Tests for forecast schemas."""
 
 import pytest
-from datetime import date
+
 from app.schemas.forecast import (
+    ComparisonMetrics,
     ForecastRequest,
     ForecastResponse,
     HistoricalDataPoint,
-    PredictionDataPoint,
-    ModelMetrics,
     ModelInfo,
-    ComparisonMetrics,
-    ForecastComparisonResponse,
+    ModelMetrics,
+    PredictionDataPoint,
 )
 
 
@@ -53,7 +52,9 @@ def test_forecast_response():
         commodity_info={"name": "Gold", "category": "Metals"},
         historical_data=[HistoricalDataPoint(date="2024-01-01", price=100.0)],
         predictions=[PredictionDataPoint(date="2024-02-01", price=102.0, day=1)],
-        metrics=ModelMetrics(training_loss=0.01, training_time=1.5, data_points_used=100),
+        metrics=ModelMetrics(
+            training_loss=0.01, training_time=1.5, data_points_used=100
+        ),
         model_info=ModelInfo(type="LSTM", epochs=50),
     )
     assert r.commodity == "gold"
@@ -62,5 +63,7 @@ def test_forecast_response():
 
 
 def test_comparison_metrics():
-    c = ComparisonMetrics(lstm_avg_price=100.0, transformer_avg_price=101.0, difference=1.0)
+    c = ComparisonMetrics(
+        lstm_avg_price=100.0, transformer_avg_price=101.0, difference=1.0
+    )
     assert c.difference == 1.0

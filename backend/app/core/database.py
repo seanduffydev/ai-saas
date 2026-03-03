@@ -1,6 +1,7 @@
 """Database connection and client initialization."""
 
-from supabase import create_client, Client
+from supabase import Client, create_client
+
 from app.config import settings
 
 
@@ -20,10 +21,7 @@ class Database:
             Supabase Client instance. Creates one on first call.
         """
         if cls._client is None:
-            cls._client = create_client(
-                settings.supabase_url,
-                settings.supabase_key
-            )
+            cls._client = create_client(settings.supabase_url, settings.supabase_key)
         return cls._client
 
 

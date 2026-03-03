@@ -1,7 +1,7 @@
 """Tests for portfolio API endpoints."""
 
-import pytest
 from unittest.mock import patch
+
 from fastapi.testclient import TestClient
 
 
@@ -14,11 +14,13 @@ def test_get_portfolio_empty(client: TestClient):
 
 def test_get_portfolio_with_positions(client: TestClient, mock_supabase_with_portfolio):
     """GET /api/portfolio returns enriched positions."""
-    from app.main import app
     from app.core.database import get_supabase
+    from app.main import app
+
     app.dependency_overrides[get_supabase] = lambda: mock_supabase_with_portfolio
     with patch("app.services.portfolio_service.yf.download") as mock_download:
         import pandas as pd
+
         mock_download.return_value = pd.DataFrame({"Close": [1950.0]})
         with TestClient(app) as c:
             response = c.get("/api/portfolio?user_id=u1")

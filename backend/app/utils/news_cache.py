@@ -2,7 +2,6 @@
 
 import json
 from datetime import datetime, timedelta, timezone
-from typing import Dict, List, Optional
 
 
 class NewsCache:
@@ -17,7 +16,7 @@ class NewsCache:
         self.supabase = supabase_client
         self.cache_duration_hours = 4
 
-    def get_cached_news(self, commodity: str) -> Optional[List[Dict]]:
+    def get_cached_news(self, commodity: str) -> list[dict] | None:
         """Return cached news for a commodity if present and not expired.
 
         Args:
@@ -28,41 +27,51 @@ class NewsCache:
         """
         try:
             # Query cache
-            result = self.supabase.table('news_cache').select('*').eq('commodity', commodity).execute()
-            
+            result = (
+                self.supabase.table("news_cache")
+                .select("*")
+                .eq("commodity", commodity)
+                .execute()
+            )
+
             if not result.data or len(result.data) == 0:
                 print(f"Cache miss for {commodity}")
                 return None
-            
+
             cache_entry = result.data[0]
-            
+
             # Check if expired (use UTC for both so comparison is correct)
-            raw = cache_entry['expires_at'].replace('Z', '+00:00')
+            raw = cache_entry["expires_at"].replace("Z", "+00:00")
             expires_at = datetime.fromisoformat(raw)
             if expires_at.tzinfo is None:
                 expires_at = expires_at.replace(tzinfo=timezone.utc)
             now = datetime.now(timezone.utc)
-            
+
             if now > expires_at:
                 print(f"Cache expired for {commodity}")
                 # Delete expired cache
-                self.supabase.table('news_cache').delete().eq('commodity', commodity).execute()
+                self.supabase.table("news_cache").delete().eq(
+                    "commodity", commodity
+                ).execute()
                 return None
-            
-            print(f"Cache hit for {commodity} (expires in {(expires_at - now).seconds // 60} minutes)")
-            
+
+            mins = (expires_at - now).seconds // 60
+            print(f"Cache hit for {commodity} (expires in {mins} minutes)")
+
             # Parse articles if they're stored as JSON string
-            articles = cache_entry['articles']
+            articles = cache_entry["articles"]
             if isinstance(articles, str):
                 articles = json.loads(articles)
-            
+
             return articles
-            
+
         except Exception as e:
             print(f"Error reading cache: {str(e)}")
             return None
-    
-    def cache_news(self, commodity: str, articles: List[Dict], source: str = 'alpha_vantage'):
+
+    def cache_news(
+        self, commodity: str, articles: list[dict], source: str = "alpha_vantage"
+    ):
         """Store news articles in cache for the given commodity.
 
         Args:
@@ -73,25 +82,28 @@ class NewsCache:
         try:
             now_utc = datetime.now(timezone.utc)
             expires_at = now_utc + timedelta(hours=self.cache_duration_hours)
-            
+
             cache_data = {
-                'commodity': commodity,
-                'articles': json.dumps(articles) if isinstance(articles, list) else articles,
-                'source': source,
-                'fetched_at': now_utc.isoformat(),
-                'expires_at': expires_at.isoformat(),
-                'article_count': len(articles)
+                "commodity": commodity,
+                "articles": json.dumps(articles)
+                if isinstance(articles, list)
+                else articles,
+                "source": source,
+                "fetched_at": now_utc.isoformat(),
+                "expires_at": expires_at.isoformat(),
+                "article_count": len(articles),
             }
-            
+
             # Upsert (insert or update if exists)
-            self.supabase.table('news_cache').upsert(cache_data).execute()
-            
-            print(f"Cached {len(articles)} articles for {commodity} (expires at {expires_at.strftime('%H:%M:%S')})")
-            
+            self.supabase.table("news_cache").upsert(cache_data).execute()
+
+            t = expires_at.strftime("%H:%M:%S")
+            print(f"Cached {len(articles)} articles for {commodity} (expires at {t})")
+
         except Exception as e:
             print(f"Error caching news: {str(e)}")
-    
-    def clear_cache(self, commodity: Optional[str] = None):
+
+    def clear_cache(self, commodity: str | None = None):
         """Remove cached entries for one commodity or all.
 
         Args:
@@ -99,20 +111,26 @@ class NewsCache:
         """
         try:
             if commodity:
-                self.supabase.table('news_cache').delete().eq('commodity', commodity).execute()
+                self.supabase.table("news_cache").delete().eq(
+                    "commodity", commodity
+                ).execute()
                 print(f"Cleared cache for {commodity}")
             else:
-                # Delete all: non-empty commodity first, then rows where commodity is null
-                self.supabase.table('news_cache').delete().neq('commodity', '').execute()
+                # Delete all: non-empty commodity first, then null commodity rows
+                self.supabase.table("news_cache").delete().neq(
+                    "commodity", ""
+                ).execute()
                 try:
-                    self.supabase.table('news_cache').delete().is_('commodity', 'null').execute()
+                    self.supabase.table("news_cache").delete().is_(
+                        "commodity", "null"
+                    ).execute()
                 except Exception:
                     pass
                 print("Cleared all cache")
         except Exception as e:
             print(f"Error clearing cache: {str(e)}")
-    
-    def get_cache_stats(self) -> Dict:
+
+    def get_cache_stats(self) -> dict:
         """Return summary statistics for cached news.
 
         Returns:
@@ -120,30 +138,35 @@ class NewsCache:
             per-commodity stats). On error, may include 'error' key.
         """
         try:
-            result = self.supabase.table('news_cache').select('commodity, article_count, fetched_at, expires_at').execute()
-            
-            stats = {
-                'total_cached_commodities': len(result.data),
-                'cache_entries': []
-            }
-            
+            result = (
+                self.supabase.table("news_cache")
+                .select("commodity, article_count, fetched_at, expires_at")
+                .execute()
+            )
+
+            stats = {"total_cached_commodities": len(result.data), "cache_entries": []}
+
             for entry in result.data:
-                raw = entry['expires_at'].replace('Z', '+00:00')
+                raw = entry["expires_at"].replace("Z", "+00:00")
                 expires_at = datetime.fromisoformat(raw)
                 if expires_at.tzinfo is None:
                     expires_at = expires_at.replace(tzinfo=timezone.utc)
                 now = datetime.now(timezone.utc)
                 is_valid = now < expires_at
-                
-                stats['cache_entries'].append({
-                    'commodity': entry['commodity'],
-                    'articles': entry['article_count'],
-                    'valid': is_valid,
-                    'expires_in_minutes': (expires_at - now).seconds // 60 if is_valid else 0
-                })
-            
+
+                stats["cache_entries"].append(
+                    {
+                        "commodity": entry["commodity"],
+                        "articles": entry["article_count"],
+                        "valid": is_valid,
+                        "expires_in_minutes": (expires_at - now).seconds // 60
+                        if is_valid
+                        else 0,
+                    }
+                )
+
             return stats
-            
+
         except Exception as e:
             print(f"Error getting cache stats: {str(e)}")
-            return {'error': str(e)}
+            return {"error": str(e)}

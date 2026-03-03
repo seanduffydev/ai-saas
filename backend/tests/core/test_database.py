@@ -1,6 +1,6 @@
 """Tests for database module."""
 
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
 from app.core.database import Database, get_supabase
 

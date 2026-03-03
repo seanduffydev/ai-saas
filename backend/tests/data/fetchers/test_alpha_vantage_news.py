@@ -54,7 +54,10 @@ def test_fetch_news_rate_limit_returns_empty():
 
 
 def test_fetch_news_exception_returns_empty():
-    with patch("app.data.fetchers.alpha_vantage_news.requests.get", side_effect=Exception("Network error")):
+    with patch(
+        "app.data.fetchers.alpha_vantage_news.requests.get",
+        side_effect=Exception("Network error"),
+    ):
         articles = AlphaVantageNewsFetcher.fetch_news("gold", "key")
     assert articles == []
 
@@ -92,6 +95,9 @@ def test_fetch_general_news_error_returns_empty():
 
 
 def test_fetch_general_news_exception_returns_empty():
-    with patch("app.data.fetchers.alpha_vantage_news.requests.get", side_effect=Exception("Error")):
+    with patch(
+        "app.data.fetchers.alpha_vantage_news.requests.get",
+        side_effect=Exception("Error"),
+    ):
         articles = AlphaVantageNewsFetcher.fetch_general_news("key")
     assert articles == []

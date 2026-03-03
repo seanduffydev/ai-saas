@@ -1,6 +1,10 @@
 """Tests for watchlist schemas."""
 
-from app.schemas.watchlist import WatchlistItemCreate, WatchlistItem, WatchlistInitializeResponse
+from app.schemas.watchlist import (
+    WatchlistInitializeResponse,
+    WatchlistItem,
+    WatchlistItemCreate,
+)
 
 
 def test_watchlist_item_create():

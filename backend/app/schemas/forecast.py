@@ -1,6 +1,6 @@
 """Pydantic schemas for forecast API requests and responses."""
 
-from typing import Any, Dict, List
+from typing import Any
 
 from pydantic import BaseModel, Field
 
@@ -16,9 +16,15 @@ class ForecastRequest(BaseModel):
     """
 
     commodity: str = Field(..., description="Commodity name (e.g., 'Gold', 'Silver')")
-    forecast_days: int = Field(30, ge=1, le=365, description="Number of days to forecast")
-    window_size: int = Field(60, ge=10, le=365, description="Historical window size for training")
-    period: str = Field('2y', description="Historical data period (e.g., '1y', '2y', '5y')")
+    forecast_days: int = Field(
+        30, ge=1, le=365, description="Number of days to forecast"
+    )
+    window_size: int = Field(
+        60, ge=10, le=365, description="Historical window size for training"
+    )
+    period: str = Field(
+        "2y", description="Historical data period (e.g., '1y', '2y', '5y')"
+    )
 
 
 class HistoricalDataPoint(BaseModel):
@@ -86,9 +92,9 @@ class ForecastResponse(BaseModel):
     """
 
     commodity: str
-    commodity_info: Dict[str, Any]
-    historical_data: List[HistoricalDataPoint]
-    predictions: List[PredictionDataPoint]
+    commodity_info: dict[str, Any]
+    historical_data: list[HistoricalDataPoint]
+    predictions: list[PredictionDataPoint]
     metrics: ModelMetrics
     model_info: ModelInfo
 
@@ -122,10 +128,10 @@ class ForecastComparisonResponse(BaseModel):
     """
 
     commodity: str
-    commodity_info: Dict[str, Any]
-    historical_data: List[HistoricalDataPoint]
-    lstm_predictions: List[PredictionDataPoint]
-    transformer_predictions: List[PredictionDataPoint]
+    commodity_info: dict[str, Any]
+    historical_data: list[HistoricalDataPoint]
+    lstm_predictions: list[PredictionDataPoint]
+    transformer_predictions: list[PredictionDataPoint]
     lstm_metrics: ModelMetrics
     transformer_metrics: ModelMetrics
     model_comparison: ComparisonMetrics

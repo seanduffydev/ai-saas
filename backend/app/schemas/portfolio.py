@@ -1,7 +1,7 @@
 """Pydantic schemas for portfolio API requests and responses."""
 
 from datetime import date
-from typing import Any, List, Optional
+from typing import Any
 
 from pydantic import BaseModel, Field
 
@@ -18,10 +18,12 @@ class PortfolioPositionCreate(BaseModel):
     """
 
     commodity: str = Field(..., description="Commodity name")
-    quantity: float = Field(..., gt=0, description="Quantity purchased (must be positive)")
+    quantity: float = Field(
+        ..., gt=0, description="Quantity purchased (must be positive)"
+    )
     purchase_price: float = Field(..., gt=0, description="Price per unit at purchase")
     purchase_date: date = Field(..., description="Date of purchase (YYYY-MM-DD)")
-    notes: Optional[str] = Field(None, max_length=500, description="Optional notes")
+    notes: str | None = Field(None, max_length=500, description="Optional notes")
 
 
 class PortfolioPosition(BaseModel):
@@ -47,11 +49,11 @@ class PortfolioPosition(BaseModel):
     quantity: float
     purchase_price: float
     purchase_date: date
-    notes: Optional[str]
-    current_price: Optional[float]
-    current_value: Optional[float]
-    profit_loss: Optional[float]
-    profit_loss_percent: Optional[float]
+    notes: str | None
+    current_price: float | None
+    current_value: float | None
+    profit_loss: float | None
+    profit_loss_percent: float | None
 
 
 class PortfolioAddResponse(BaseModel):
@@ -63,7 +65,7 @@ class PortfolioAddResponse(BaseModel):
     """
 
     message: str
-    data: List[Any] = []
+    data: list[Any] = []
 
 
 class DeletePositionResponse(BaseModel):

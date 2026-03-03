@@ -1,7 +1,8 @@
 """Tests for security (auth)."""
 
+from unittest.mock import MagicMock
+
 import pytest
-from unittest.mock import MagicMock, AsyncMock
 from fastapi import HTTPException
 from fastapi.security import HTTPAuthorizationCredentials
 
@@ -16,7 +17,9 @@ async def test_get_current_user_success():
     mock_user.email = "u@example.com"
     mock_supabase = MagicMock()
     mock_supabase.auth.get_user = lambda t: MagicMock(user=mock_user)
-    credentials = HTTPAuthorizationCredentials(scheme="Bearer", credentials="valid-token")
+    credentials = HTTPAuthorizationCredentials(
+        scheme="Bearer", credentials="valid-token"
+    )
     user = await get_current_user(credentials, mock_supabase)
     assert user.id == "user-123"
     assert user.email == "u@example.com"
@@ -37,7 +40,9 @@ async def test_get_current_user_no_user_raises_401():
 async def test_get_current_user_exception_raises_401():
     """get_current_user raises 401 on exception."""
     mock_supabase = MagicMock()
-    mock_supabase.auth.get_user = lambda t: (_ for _ in ()).throw(Exception("Invalid token"))
+    mock_supabase.auth.get_user = lambda t: (_ for _ in ()).throw(
+        Exception("Invalid token")
+    )
     credentials = HTTPAuthorizationCredentials(scheme="Bearer", credentials="x")
     with pytest.raises(HTTPException) as exc_info:
         await get_current_user(credentials, mock_supabase)

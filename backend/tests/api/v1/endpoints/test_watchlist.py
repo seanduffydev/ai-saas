@@ -1,6 +1,5 @@
 """Tests for watchlist API endpoints."""
 
-import pytest
 from fastapi.testclient import TestClient
 
 
@@ -13,8 +12,9 @@ def test_get_watchlist_empty(client: TestClient):
 
 def test_get_watchlist_with_items(client: TestClient, mock_supabase_with_watchlist):
     """GET /api/watchlist returns user items."""
-    from app.main import app
     from app.core.database import get_supabase
+    from app.main import app
+
     app.dependency_overrides[get_supabase] = lambda: mock_supabase_with_watchlist
     with TestClient(app) as c:
         response = c.get("/api/watchlist?user_id=u1")
@@ -53,14 +53,20 @@ def test_initialize_watchlist_empty(client: TestClient):
     assert "message" in data
 
 
-def test_initialize_watchlist_already_has_items(client: TestClient, mock_supabase_with_watchlist):
+def test_initialize_watchlist_already_has_items(
+    client: TestClient, mock_supabase_with_watchlist
+):
     """POST /api/watchlist/initialize when user has items returns existing."""
-    from app.main import app
     from app.core.database import get_supabase
+    from app.main import app
+
     app.dependency_overrides[get_supabase] = lambda: mock_supabase_with_watchlist
     with TestClient(app) as c:
         response = c.post("/api/watchlist/initialize?user_id=u1")
     assert response.status_code == 200
     data = response.json()
-    assert "already initialized" in data["message"].lower() or len(data.get("data", [])) >= 1
+    assert (
+        "already initialized" in data["message"].lower()
+        or len(data.get("data", [])) >= 1
+    )
     app.dependency_overrides.pop(get_supabase, None)

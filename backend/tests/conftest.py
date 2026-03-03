@@ -1,9 +1,10 @@
 """Pytest fixtures and shared mocks for backend tests."""
 
-import pytest
-from unittest.mock import MagicMock, patch
 from datetime import datetime, timedelta
+from unittest.mock import MagicMock, patch
+
 import pandas as pd
+import pytest
 
 # Create mock app after patching so we get overrides; we need to import app
 # and override its dependencies.
@@ -16,7 +17,7 @@ def _make_mock_supabase(
     news_cache_data=None,
     auth_user=None,
 ):
-    """Build a MagicMock Supabase client that supports table().select().eq().execute() etc."""
+    """Build a MagicMock Supabase client for table().select().eq().execute() etc."""
     mock = MagicMock()
     watchlist_data = watchlist_data or []
     portfolio_data = portfolio_data or []
@@ -92,8 +93,8 @@ def mock_supabase_with_portfolio():
 @pytest.fixture
 def client(mock_supabase):
     """FastAPI TestClient with get_supabase overridden to return mock_supabase."""
-    from app.main import app
     from app.core.database import get_supabase
+    from app.main import app
 
     def override_get_supabase():
         return mock_supabase
@@ -106,30 +107,31 @@ def client(mock_supabase):
 
 @pytest.fixture
 def auth_headers(mock_supabase):
-    """Bearer token for forecast endpoints; mock_supabase.auth.get_user will accept any token."""
+    """Bearer token for forecast; mock_supabase.auth.get_user accepts any token."""
     return {"Authorization": "Bearer fake-jwt-token"}
 
 
 @pytest.fixture
 def sample_historical_df():
-    """Minimal DataFrame matching YahooFetcher output (date, open, high, low, close, volume)."""
+    """Minimal DataFrame for YahooFetcher (date, open, high, low, close, volume)."""
     dates = pd.date_range("2023-01-01", periods=30, freq="D")
-    return pd.DataFrame({
-        "date": dates,
-        "open": [100.0] * 30,
-        "high": [101.0] * 30,
-        "low": [99.0] * 30,
-        "close": [100.0 + i * 0.5 for i in range(30)],
-        "volume": [1000] * 30,
-    })
+    return pd.DataFrame(
+        {
+            "date": dates,
+            "open": [100.0] * 30,
+            "high": [101.0] * 30,
+            "low": [99.0] * 30,
+            "close": [100.0 + i * 0.5 for i in range(30)],
+            "volume": [1000] * 30,
+        }
+    )
 
 
 @pytest.fixture
 def sample_prices_and_dates():
     """List of prices and list of dates for forecast service tests."""
-    from datetime import datetime, timedelta
     base = datetime(2023, 1, 1)
-    dates = [(base + timedelta(days=i)).strftime("%Y-%m-%d") for i in range(30)]
+    [(base + timedelta(days=i)).strftime("%Y-%m-%d") for i in range(30)]
     # dates from ForecastService are datetime objects when from Yahoo
     dates_as_dt = [base + timedelta(days=i) for i in range(30)]
     prices = [100.0 + i * 0.5 for i in range(30)]

@@ -1,5 +1,4 @@
-"""
-Commodity Forecasting Lab API
+"""Commodity Forecasting Lab API.
 
 A FastAPI application for AI-powered commodity price forecasting,
 portfolio tracking, and market intelligence.
@@ -9,7 +8,6 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.v1 import api_router
-from app.config import settings
 
 
 def create_application() -> FastAPI:
@@ -25,9 +23,9 @@ def create_application() -> FastAPI:
         version="1.0.0",
         description="AI-powered commodity forecasting and portfolio management",
         docs_url="/docs",
-        redoc_url="/redoc"
+        redoc_url="/redoc",
     )
-    
+
     # CORS: exact origins + regex for Vercel preview deployments (*.vercel.app)
     app.add_middleware(
         CORSMiddleware,
@@ -40,10 +38,10 @@ def create_application() -> FastAPI:
         allow_headers=["*"],
         allow_origin_regex=r"https://[a-z0-9-]+\.vercel\.app",
     )
-    
+
     # Include API routes
     app.include_router(api_router)
-    
+
     return app
 
 
@@ -62,7 +60,7 @@ def root():
         "message": "Commodity Forecasting Lab API",
         "status": "running",
         "version": "1.0.0",
-        "docs": "/docs"
+        "docs": "/docs",
     }
 
 
@@ -78,6 +76,8 @@ def health_check():
 
 if __name__ == "__main__":
     import os
+
     import uvicorn
+
     port = int(os.environ.get("PORT", "8000"))
     uvicorn.run(app, host="0.0.0.0", port=port)

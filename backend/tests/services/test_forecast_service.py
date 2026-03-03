@@ -1,8 +1,8 @@
 """Tests for ForecastService."""
 
-from datetime import datetime, timedelta
-import pytest
-from unittest.mock import patch, MagicMock
+from datetime import datetime
+from unittest.mock import patch
+
 import pandas as pd
 
 from app.services.forecast_service import ForecastService
@@ -10,10 +10,12 @@ from app.services.forecast_service import ForecastService
 
 def test_fetch_historical_data_mocked():
     """fetch_historical_data returns prices and dates from YahooFetcher."""
-    df = pd.DataFrame({
-        "date": [datetime(2024, 1, 1), datetime(2024, 1, 2)],
-        "close": [100.0, 101.0],
-    })
+    df = pd.DataFrame(
+        {
+            "date": [datetime(2024, 1, 1), datetime(2024, 1, 2)],
+            "close": [100.0, 101.0],
+        }
+    )
     with patch("app.services.forecast_service.YahooFetcher") as MockYahoo:
         MockYahoo.fetch_historical.return_value = df
         prices, dates = ForecastService.fetch_historical_data("gold", "1y")

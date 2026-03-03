@@ -1,6 +1,7 @@
 """Application configuration and environment settings."""
 
 import os
+
 from pydantic_settings import BaseSettings
 
 

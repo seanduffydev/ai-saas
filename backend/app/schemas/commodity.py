@@ -1,6 +1,6 @@
 """Pydantic schemas for commodity API requests and responses."""
 
-from typing import Any, Dict, List
+from typing import Any
 
 from pydantic import BaseModel
 
@@ -32,7 +32,7 @@ class CommodityListResponse(BaseModel):
         commodities: List of commodity dicts (id, name, category, etc.).
     """
 
-    commodities: List[Dict[str, Any]]
+    commodities: list[dict[str, Any]]
 
 
 class PriceData(BaseModel):
@@ -67,7 +67,7 @@ class PriceHistoryResponse(BaseModel):
     """
 
     commodity: str
-    commodity_info: Dict[str, Any]
+    commodity_info: dict[str, Any]
     period: str
     data_points: int
-    data: List[PriceData]
+    data: list[PriceData]

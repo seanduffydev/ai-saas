@@ -1,9 +1,9 @@
 """Tests for YahooFetcher."""
 
-import pytest
-import pandas as pd
-from datetime import datetime
 from unittest.mock import patch
+
+import pandas as pd
+import pytest
 
 from app.data.fetchers.yahoo_fetcher import YahooFetcher
 
@@ -36,7 +36,10 @@ def test_list_commodities():
 
 def test_fetch_historical_success(sample_historical_df):
     """fetch_historical returns DataFrame with required columns."""
-    with patch("app.data.fetchers.yahoo_fetcher.yf.download", return_value=sample_historical_df.copy()):
+    with patch(
+        "app.data.fetchers.yahoo_fetcher.yf.download",
+        return_value=sample_historical_df.copy(),
+    ):
         df = YahooFetcher.fetch_historical("gold", period="1y")
     assert "date" in df.columns
     assert "close" in df.columns
@@ -51,7 +54,9 @@ def test_fetch_historical_unknown_commodity():
 
 
 def test_fetch_historical_empty_df():
-    with patch("app.data.fetchers.yahoo_fetcher.yf.download", return_value=pd.DataFrame()):
+    with patch(
+        "app.data.fetchers.yahoo_fetcher.yf.download", return_value=pd.DataFrame()
+    ):
         with pytest.raises(ValueError, match="No data available"):
             YahooFetcher.fetch_historical("gold", period="1d")
 

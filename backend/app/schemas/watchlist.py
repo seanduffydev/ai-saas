@@ -1,6 +1,6 @@
 """Pydantic schemas for watchlist API requests and responses."""
 
-from typing import Any, List
+from typing import Any
 
 from pydantic import BaseModel, Field
 
@@ -12,7 +12,9 @@ class WatchlistItemCreate(BaseModel):
         commodity_id: Commodity identifier (e.g. 'gold', 'silver').
     """
 
-    commodity_id: str = Field(..., description="Commodity identifier (e.g., 'gold', 'silver')")
+    commodity_id: str = Field(
+        ..., description="Commodity identifier (e.g., 'gold', 'silver')"
+    )
 
 
 class WatchlistItem(BaseModel):
@@ -42,11 +44,11 @@ class WatchlistInitializeResponse(BaseModel):
     """
 
     message: str
-    data: List[WatchlistItem] = []
+    data: list[WatchlistItem] = []
 
 
 class WatchlistAddResponse(BaseModel):
     """Response for adding an item to watchlist (message + created row data)."""
 
     message: str
-    data: List[Any] = []
+    data: list[Any] = []

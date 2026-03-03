@@ -19,7 +19,9 @@ select = [
 ]
 ignore = [
     "D100",  # Missing module docstring (optional; remove to enforce)
+    "D103",  # Missing docstring in public function (tests often omit)
     "D104",  # Missing docstring in public package
+    "F403",  # Star imports in __init__.py (intentional re-exports)
 ]
 
 [tool.ruff.lint.pydocstyle]

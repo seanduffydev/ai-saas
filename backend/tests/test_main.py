@@ -1,6 +1,5 @@
 """Tests for main app (root and health)."""
 
-import pytest
 from fastapi.testclient import TestClient
 
 
