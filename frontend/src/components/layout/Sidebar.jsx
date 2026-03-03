@@ -1,7 +1,15 @@
+/**
+ * @fileoverview Sidebar navigation with links to Dashboard, Forecast, News, Portfolio, Help.
+ */
+
 import React from 'react';
 import { NavLink } from 'react-router-dom';
 import './Sidebar.css';
 
+/**
+ * Renders the main sidebar with brand and nav links. Uses NavLink for active styling.
+ * @return {JSX.Element} Sidebar nav element.
+ */
 function Sidebar() {
   return (
     <nav className="sidebar">

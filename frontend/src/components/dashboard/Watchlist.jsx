@@ -1,9 +1,21 @@
+/**
+ * @fileoverview User watchlist: list of commodities with prices, period selector, add/remove.
+ */
+
 import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import toast, { Toaster } from 'react-hot-toast';
+import { supabase } from '../../supabaseClient';
 import './Watchlist.css';
 
+/**
+ * Watchlist component. Fetches user's watchlist and price data per commodity,
+ * supports add/remove and period selection. Uses backend /api/watchlist and /api/prices.
+ * @param {Object} props - Component props.
+ * @param {string} [props.userId] - Current user id (required for loading watchlist).
+ * @return {JSX.Element} Watchlist UI with cards, add modal, and period selector.
+ */
 function Watchlist({ userId }) {
   const [watchlist, setWatchlist] = useState([]);
   const [prices, setPrices] = useState({});
@@ -22,13 +34,19 @@ function Watchlist({ userId }) {
 
   const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 
+  const getAuthHeaders = useCallback(async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    return session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {};
+  }, []);
+
   // Load watchlist from database
   const loadWatchlist = useCallback(async () => {
     if (!userId) return;
 
     setLoadingWatchlist(true);
     try {
-      const response = await axios.get(`${API_URL}/api/watchlist?user_id=${userId}`);
+      const headers = await getAuthHeaders();
+      const response = await axios.get(`${API_URL}/api/watchlist`, { headers });
       setWatchlist(response.data.map(item => item.commodity_id));
     } catch (error) {
       console.error('Error loading watchlist:', error);
@@ -36,7 +54,7 @@ function Watchlist({ userId }) {
     } finally {
       setLoadingWatchlist(false);
     }
-  }, [API_URL, userId]);
+  }, [API_URL, userId, getAuthHeaders]);
 
   // Load available commodities for add modal
   const loadAvailableCommodities = useCallback(async () => {
@@ -204,9 +222,11 @@ function Watchlist({ userId }) {
   const handleAddCommodity = async (commodityId) => {
     setAddingCommodity(true);
     try {
+      const headers = await getAuthHeaders();
       await axios.post(
-        `${API_URL}/api/watchlist?user_id=${userId}`,
-        { commodity_id: commodityId }
+        `${API_URL}/api/watchlist`,
+        { commodity_id: commodityId },
+        { headers }
       );
 
       toast.success(`${getCommodityName(commodityId)} added to watchlist`);
@@ -230,7 +250,8 @@ function Watchlist({ userId }) {
 
     setRemovingCommodity(commodityId);
     try {
-      await axios.delete(`${API_URL}/api/watchlist/${commodityId}?user_id=${userId}`);
+      const headers = await getAuthHeaders();
+      await axios.delete(`${API_URL}/api/watchlist/${commodityId}`, { headers });
 
       toast.success(`${getCommodityName(commodityId)} removed from watchlist`);
       await loadWatchlist();

@@ -1,3 +1,7 @@
+/**
+ * @fileoverview AI Forecast page: commodity selection, single or compare mode, charts and metrics.
+ */
+
 import { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
 import axios from 'axios';
@@ -9,6 +13,11 @@ import LoadingSpinner from '../components/LoadingSpinner';
 import ComparisonChart from '../components/ComparisonChart';
 import ComparisonMetrics from '../components/ComparisonMetrics';
 
+/**
+ * Forecast page. Loads commodities, lets user pick one and generate LSTM and/or
+ * comparison (LSTM vs Transformer) forecasts; displays charts and metrics.
+ * @return {JSX.Element} Forecast form, loading state, and result charts.
+ */
 function ForecastPage() {
     // State
     const [commodities, setCommodities] = useState([]);

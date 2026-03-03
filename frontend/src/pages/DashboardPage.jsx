@@ -1,16 +1,27 @@
+/**
+ * @fileoverview Dashboard page: welcome, watchlist, portfolio summary, quick actions.
+ */
+
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../supabaseClient'; // ← ADD THIS IMPORT
+import { supabase } from '../supabaseClient';
 import Watchlist from '../components/dashboard/Watchlist';
+import PortfolioSummary from '../components/dashboard/PortfolioSummary';
+import QuickActions from '../components/dashboard/QuickActions';
 import './DashboardPage.css';
 
+/**
+ * Dashboard page component. Shows welcome section, user watchlist, portfolio
+ * summary placeholder, and quick action buttons.
+ * @return {JSX.Element} Dashboard layout with watchlist and sidebar cards.
+ */
 function DashboardPage() {
-  const [user, setUser] = useState(null); // ← ADD THIS
+  const [user, setUser] = useState(null);
 
-  // Get the current user when component loads
   useEffect(() => {
     checkUser();
   }, []);
 
+  /** Fetches current session and sets user state. */
   const checkUser = async () => {
     const { data: { session } } = await supabase.auth.getSession();
     setUser(session?.user || null);
@@ -29,26 +40,8 @@ function DashboardPage() {
         </div>
 
         <div className="dashboard-sidebar">
-          <div className="dashboard-card-new">
-            <h3>💼 Portfolio Summary</h3>
-            <p className="placeholder-text">Track your positions</p>
-            <div className="stat-row">
-              <span className="stat-label">Total Value:</span>
-              <span className="stat-value">$0.00</span>
-            </div>
-            <div className="stat-row">
-              <span className="stat-label">Today's P&L:</span>
-              <span className="stat-value neutral">$0.00</span>
-            </div>
-            <button className="view-btn">View Portfolio →</button>
-          </div>
-
-          <div className="dashboard-card-new">
-            <h3>🚀 Quick Actions</h3>
-            <button className="quick-action-btn">📊 Generate Forecast</button>
-            <button className="quick-action-btn">📰 Check Latest News</button>
-            <button className="quick-action-btn">💼 Add to Portfolio</button>
-          </div>
+          <PortfolioSummary />
+          <QuickActions />
         </div>
       </div>
 

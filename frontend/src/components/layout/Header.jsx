@@ -1,6 +1,17 @@
+/**
+ * @fileoverview App header with welcome title, user email, and sign-out button.
+ */
+
 import React from 'react';
 import './Header.css';
 
+/**
+ * Renders the top header bar with user email and sign-out control.
+ * @param {Object} props - Component props.
+ * @param {Object} [props.user] - Current auth user (uses user.email for display).
+ * @param {function} [props.onSignOut] - Callback when user clicks Sign Out.
+ * @return {JSX.Element} Header element.
+ */
 function Header({ user, onSignOut }) {
   return (
     <header className="app-header-new">

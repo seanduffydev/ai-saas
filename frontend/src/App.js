@@ -1,3 +1,7 @@
+/**
+ * @fileoverview Root app component: auth, routing, and layout for Commodity Forecasting Lab.
+ */
+
 import { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { supabase } from './supabaseClient';
@@ -9,6 +13,12 @@ import ForecastPage from './pages/ForecastPage';
 import NewsPage from './pages/NewsPage';
 import Portfolio from './pages/Portfolio';
 
+/**
+ * Main application component. Handles Supabase auth and routes authenticated
+ * users to Dashboard, Forecast, News, and Portfolio. Unauthenticated users see
+ * sign-in/sign-up form.
+ * @return {JSX.Element} Either auth UI, loading spinner, or routed app with Layout.
+ */
 function App() {
   const [user, setUser] = useState(null);
   const [email, setEmail] = useState('');
@@ -31,6 +41,10 @@ function App() {
     return () => subscription.unsubscribe();
   }, []);
 
+  /**
+   * Handle sign-up form submit. Creates Supabase user and prompts email confirmation.
+   * @param {React.FormEvent} e - Form submit event.
+   */
   const handleSignUp = async (e) => {
     e.preventDefault();
     setError(null);
@@ -42,6 +56,10 @@ function App() {
     }
   };
 
+  /**
+   * Handle sign-in form submit. Authenticates with Supabase email/password.
+   * @param {React.FormEvent} e - Form submit event.
+   */
   const handleSignIn = async (e) => {
     e.preventDefault();
     setError(null);
@@ -51,6 +69,7 @@ function App() {
     }
   };
 
+  /** Sign out the current user via Supabase auth. */
   const handleSignOut = async () => {
     await supabase.auth.signOut();
   };

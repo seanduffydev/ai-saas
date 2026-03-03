@@ -1,9 +1,12 @@
 import React, { useState, useEffect } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { supabase } from '../supabaseClient';
 import './Portfolio.css';
 
 function Portfolio() {
+  const location = useLocation();
+  const navigate = useNavigate();
   const [positions, setPositions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showAddForm, setShowAddForm] = useState(false);
@@ -21,8 +24,8 @@ function Portfolio() {
   const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 
   const commodities = [
-    'Gold', 'Silver', 'Crude Oil', 'Copper', 
-    'Natural Gas', 'Platinum', 'Wheat', 'Corn'
+    'Gold', 'Silver', 'Crude Oil', 'Copper',
+    'Natural Gas', 'Platinum', 'Wheat', 'Corn', 'Soybeans'
   ];
 
   useEffect(() => {
@@ -35,17 +38,28 @@ function Portfolio() {
     }
   }, [user]);
 
+  useEffect(() => {
+    if (location.state?.openAddForm === true) {
+      setShowAddForm(true);
+      navigate('/portfolio', { replace: true, state: {} });
+    }
+  }, [location.state, navigate]);
+
   const checkUser = async () => {
     const { data: { session } } = await supabase.auth.getSession();
     setUser(session?.user || null);
   };
 
+  const getAuthHeaders = async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    return session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {};
+  };
+
   const fetchPortfolio = async () => {
     try {
       setLoading(true);
-      const response = await axios.get(`${API_URL}/api/portfolio`, {
-        params: { user_id: user.id }
-      });
+      const headers = await getAuthHeaders();
+      const response = await axios.get(`${API_URL}/api/portfolio`, { headers });
       setPositions(response.data);
     } catch (error) {
       console.error('Error fetching portfolio:', error);
@@ -65,11 +79,8 @@ function Portfolio() {
     e.preventDefault();
     
     try {
-      await axios.post(
-        `${API_URL}/api/portfolio`,
-        formData,
-        { params: { user_id: user.id } }
-      );
+      const headers = await getAuthHeaders();
+      await axios.post(`${API_URL}/api/portfolio`, formData, { headers });
       
       setShowAddForm(false);
       setFormData({
@@ -93,13 +104,16 @@ function Portfolio() {
     }
 
     try {
-      await axios.delete(`${API_URL}/api/portfolio/${positionId}`, {
-        params: { user_id: user.id }
-      });
+      const headers = await getAuthHeaders();
+      await axios.delete(`${API_URL}/api/portfolio/${positionId}`, { headers });
       fetchPortfolio();
     } catch (error) {
       console.error('Error deleting position:', error);
-      alert('Failed to delete position');
+      if (error.response?.status === 404) {
+        alert('Position not found or already deleted.');
+      } else {
+        alert('Failed to delete position');
+      }
     }
   };
 

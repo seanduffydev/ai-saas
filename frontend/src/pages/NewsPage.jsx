@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import './NewsPage.css';
 
@@ -19,7 +19,7 @@ function NewsPage() {
 
   const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 
-  const loadNews = async () => {
+  const loadNews = useCallback(async () => {
     setLoading(true);
     setError(null);
 
@@ -50,7 +50,11 @@ function NewsPage() {
     } finally {
         setLoading(false);
     }
-  };
+  }, [selectedCommodity, API_URL]);
+
+  useEffect(() => {
+    loadNews();
+  }, [loadNews]);
 
   const formatDate = (dateString) => {
     if (!dateString) return 'Recently';
