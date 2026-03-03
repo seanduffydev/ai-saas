@@ -1,10 +1,14 @@
-import yfinance as yf
-import pandas as pd
+"""Yahoo Finance data fetcher for commodity prices and metadata."""
+
 from typing import Optional
 
+import pandas as pd
+import yfinance as yf
+
+
 class YahooFetcher:
-    """Fetch commodity price data from Yahoo Finance"""
-    
+    """Fetches commodity price data and metadata from Yahoo Finance."""
+
     SYMBOLS = {
         'gold': 'GC=F',
         'silver': 'SI=F',
@@ -29,14 +33,42 @@ class YahooFetcher:
     
     @staticmethod
     def get_symbol(commodity: str) -> Optional[str]:
+        """Map commodity name to Yahoo Finance ticker.
+
+        Args:
+            commodity: Commodity name (e.g. 'gold', 'Gold').
+
+        Returns:
+            Ticker symbol (e.g. 'GC=F') or None if unknown.
+        """
         return YahooFetcher.SYMBOLS.get(commodity.lower())
-    
+
     @staticmethod
     def get_info(commodity: str) -> Optional[dict]:
+        """Get display metadata for a commodity.
+
+        Args:
+            commodity: Commodity name (case-insensitive).
+
+        Returns:
+            Dict with 'name', 'category', 'unit', 'icon' or None if unknown.
+        """
         return YahooFetcher.COMMODITY_INFO.get(commodity.lower())
-    
+
     @staticmethod
     def fetch_historical(commodity: str, period: str = '5y') -> pd.DataFrame:
+        """Download historical OHLCV data for a commodity.
+
+        Args:
+            commodity: Commodity name (must be in SYMBOLS).
+            period: Yahoo Finance period (e.g. '1y', '5y', 'max').
+
+        Returns:
+            DataFrame with columns date, open, high, low, close, volume (lowercase).
+
+        Raises:
+            ValueError: If commodity is unknown or no data is returned.
+        """
         symbol = YahooFetcher.get_symbol(commodity)
         if not symbol:
             raise ValueError(f"Unknown commodity: {commodity}")
@@ -76,6 +108,11 @@ class YahooFetcher:
     
     @staticmethod
     def list_commodities():
+        """Return list of all supported commodities with metadata and symbol.
+
+        Returns:
+            List of dicts with 'id', 'name', 'category', 'unit', 'icon', 'symbol'.
+        """
         return [
             {
                 'id': key,

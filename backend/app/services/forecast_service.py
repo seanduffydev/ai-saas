@@ -119,8 +119,13 @@ class ForecastService:
         historical_data = []
         count = min(display_count, len(prices))
         for i in range(len(prices) - count, len(prices)):
+            date_val = dates[i]
+            if hasattr(date_val, 'strftime'):
+                date_str = date_val.strftime('%Y-%m-%d')
+            else:
+                date_str = str(date_val)
             historical_data.append({
-                'date': dates[i].strftime('%Y-%m-%d'),
+                'date': date_str,
                 'price': float(prices[i])
             })
         return historical_data

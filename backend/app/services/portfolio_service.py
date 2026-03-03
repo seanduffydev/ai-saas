@@ -1,13 +1,15 @@
 """Portfolio management business logic"""
 
 from typing import List, Dict, Any, Optional
+
+import pandas as pd
 import yfinance as yf
 
 
 class PortfolioService:
     """Service for portfolio operations"""
     
-    # Ticker mapping
+    # Ticker mapping (display names as in portfolio UI)
     TICKER_MAP = {
         "Gold": "GC=F",
         "Silver": "SI=F",
@@ -16,7 +18,8 @@ class PortfolioService:
         "Natural Gas": "NG=F",
         "Platinum": "PL=F",
         "Wheat": "ZW=F",
-        "Corn": "ZC=F"
+        "Corn": "ZC=F",
+        "Soybeans": "ZS=F",
     }
     
     @classmethod
@@ -52,7 +55,14 @@ class PortfolioService:
             if df.empty:
                 return None
             
-            return float(df['Close'].iloc[-1].item())
+            # Handle MultiIndex columns or different casing (yfinance varies)
+            if isinstance(df.columns, pd.MultiIndex):
+                df.columns = [col[0] if isinstance(col, tuple) else col for col in df.columns]
+            df.columns = [str(c).lower().strip() for c in df.columns]
+            close_col = 'close' if 'close' in df.columns else 'Close'
+            if close_col not in df.columns:
+                return None
+            return float(df[close_col].iloc[-1].item())
         except Exception as e:
             print(f"Error fetching price for {commodity}: {e}")
             return None

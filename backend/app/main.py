@@ -13,11 +13,12 @@ from app.config import settings
 
 
 def create_application() -> FastAPI:
-    """
-    Create and configure the FastAPI application.
-    
+    """Create and configure the FastAPI application.
+
+    Sets up CORS, mounts the v1 API router, and configures docs URLs.
+
     Returns:
-        Configured FastAPI application instance
+        Configured FastAPI application instance.
     """
     app = FastAPI(
         title="Commodity Forecasting Lab",
@@ -27,17 +28,17 @@ def create_application() -> FastAPI:
         redoc_url="/redoc"
     )
     
-    # Configure CORS
+    # CORS: exact origins + regex for Vercel preview deployments (*.vercel.app)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=[
             "http://localhost:3000",
             "https://ai-saas-fawn-kappa.vercel.app",
-            "https://*.vercel.app",
         ],
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
+        allow_origin_regex=r"https://[a-z0-9-]+\.vercel\.app",
     )
     
     # Include API routes
@@ -52,10 +53,10 @@ app = create_application()
 
 @app.get("/")
 def root():
-    """
-    API root endpoint.
-    
-    Returns basic information about the API.
+    """Return basic API information and links to documentation.
+
+    Returns:
+        Dict with message, status, version, and docs URL.
     """
     return {
         "message": "Commodity Forecasting Lab API",
@@ -67,11 +68,10 @@ def root():
 
 @app.get("/api/health")
 def health_check():
-    """
-    Health check endpoint for monitoring.
-    
+    """Health check endpoint for monitoring and load balancers.
+
     Returns:
-        Health status indicator
+        Dict with status key (e.g. 'healthy').
     """
     return {"status": "healthy"}
 

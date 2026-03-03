@@ -1,15 +1,25 @@
-import torch
-import torch.nn as nn
-import numpy as np
-from sklearn.preprocessing import MinMaxScaler
-from typing import Tuple, List
+"""Transformer-based time series forecaster for commodity prices."""
+
 import math
 import time
+from typing import List, Tuple
+
+import numpy as np
+import torch
+import torch.nn as nn
+from sklearn.preprocessing import MinMaxScaler
+
 
 class PositionalEncoding(nn.Module):
-    """Positional encoding for Transformer"""
-    
+    """Sinusoidal positional encoding for Transformer sequences."""
+
     def __init__(self, d_model, max_len=5000):
+        """Initialize positional encoding matrix.
+
+        Args:
+            d_model: Embedding dimension.
+            max_len: Maximum sequence length to support.
+        """
         super(PositionalEncoding, self).__init__()
         
         # Create positional encoding matrix
@@ -24,13 +34,30 @@ class PositionalEncoding(nn.Module):
         self.register_buffer('pe', pe)
     
     def forward(self, x):
+        """Add positional encoding to input.
+
+        Args:
+            x: Input tensor (batch, seq_len, d_model).
+
+        Returns:
+            Tensor of same shape as x with positional encoding added.
+        """
         return x + self.pe[:, :x.size(1), :]
 
 
 class TransformerModel(nn.Module):
-    """Transformer Neural Network for Time Series Forecasting"""
-    
+    """Transformer encoder for sequence-to-one time series prediction."""
+
     def __init__(self, input_size=1, d_model=64, nhead=4, num_layers=2, dropout=0.1):
+        """Initialize the Transformer model.
+
+        Args:
+            input_size: Input feature size per timestep (e.g. 1 for price).
+            d_model: Transformer embedding dimension.
+            nhead: Number of attention heads.
+            num_layers: Number of encoder layers.
+            dropout: Dropout probability.
+        """
         super(TransformerModel, self).__init__()
         self.d_model = d_model
         
@@ -54,8 +81,16 @@ class TransformerModel(nn.Module):
         self.fc = nn.Linear(d_model, 1)
     
     def forward(self, x):
+        """Forward pass: sequence to single-step prediction.
+
+        Args:
+            x: Input tensor (batch, seq_len, input_size).
+
+        Returns:
+            Tensor (batch, 1) with predicted value.
+        """
         # x shape: (batch, seq_len, input_size)
-        
+
         # Project input to d_model dimensions
         x = self.input_projection(x)  # (batch, seq_len, d_model)
         
@@ -75,9 +110,18 @@ class TransformerModel(nn.Module):
 
 
 class TransformerForecaster:
-    """Transformer-based Commodity Price Forecaster"""
-    
+    """Transformer-based forecaster for commodity price time series."""
+
     def __init__(self, window_size=60, forecast_horizon=30, d_model=64, nhead=4, num_layers=2):
+        """Initialize the forecaster.
+
+        Args:
+            window_size: Input sequence length (number of past prices).
+            forecast_horizon: Default number of steps to predict.
+            d_model: Transformer embedding dimension.
+            nhead: Number of attention heads.
+            num_layers: Number of encoder layers.
+        """
         self.window_size = window_size
         self.forecast_horizon = forecast_horizon
         self.d_model = d_model
@@ -88,7 +132,14 @@ class TransformerForecaster:
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     
     def prepare_data(self, prices: List[float]) -> Tuple[torch.Tensor, torch.Tensor]:
-        """Convert price array to sequences for training"""
+        """Build (X, y) sequences from price series.
+
+        Args:
+            prices: List of historical closing prices.
+
+        Returns:
+            Tuple of (X, y) tensors. X: (n_samples, window_size, 1), y: (n_samples, 1).
+        """
         prices_array = np.array(prices).reshape(-1, 1)
         scaled_prices = self.scaler.fit_transform(prices_array)
         
@@ -102,8 +153,24 @@ class TransformerForecaster:
         return X, y
     
     def train(self, prices: List[float], epochs=50, lr=0.001, batch_size=32) -> dict:
-        """Train the Transformer model"""
+        """Train the Transformer on historical prices.
+
+        Args:
+            prices: Historical price series.
+            epochs: Number of training epochs.
+            lr: Learning rate for Adam.
+            batch_size: Mini-batch size.
+
+        Returns:
+            Dict with 'final_loss', 'training_time', and 'epochs'.
+        """
         start_time = time.time()
+
+        if len(prices) <= self.window_size:
+            raise ValueError(
+                f"Need more than {self.window_size} prices to train; got {len(prices)}"
+            )
+
         X, y = self.prepare_data(prices)
         
         self.model = TransformerModel(
@@ -136,6 +203,7 @@ class TransformerForecaster:
                 epoch_loss += loss.item()
                 num_batches += 1
             
+            num_batches = max(num_batches, 1)
             avg_loss = epoch_loss / num_batches
             losses.append(avg_loss)
             
@@ -150,10 +218,24 @@ class TransformerForecaster:
         }
     
     def predict(self, recent_prices: List[float], num_steps=None) -> List[float]:
-        """Make multi-step prediction"""
+        """Produce multi-step ahead price predictions.
+
+        Args:
+            recent_prices: Most recent prices (length >= window_size).
+            num_steps: Number of steps to predict; defaults to forecast_horizon.
+
+        Returns:
+            List of predicted prices in original scale.
+
+        Raises:
+            ValueError: If len(recent_prices) < window_size.
+        """
         if num_steps is None:
             num_steps = self.forecast_horizon
-        
+
+        if self.model is None:
+            raise ValueError("Model has not been trained. Call train() first.")
+
         self.model.eval()
         
         if len(recent_prices) < self.window_size:

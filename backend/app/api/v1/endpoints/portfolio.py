@@ -5,12 +5,13 @@ from typing import List
 from supabase import Client
 
 from app.schemas.portfolio import (
-    PortfolioPositionCreate, 
+    PortfolioPositionCreate,
     PortfolioPosition,
-    DeletePositionResponse
+    PortfolioAddResponse,
+    DeletePositionResponse,
 )
 from app.schemas.common import MessageResponse
-from app.api.v1.deps import get_supabase
+from app.api.v1.deps import get_supabase, get_current_user, get_user_id_from_token
 from app.services.portfolio_service import PortfolioService
 
 router = APIRouter()
@@ -18,8 +19,8 @@ router = APIRouter()
 
 @router.get("/api/portfolio", response_model=List[PortfolioPosition])
 async def get_portfolio(
-    user_id: str,
-    supabase: Client = Depends(get_supabase)
+    current_user=Depends(get_current_user),
+    supabase: Client = Depends(get_supabase),
 ):
     """
     Get all portfolio positions for a user with current market data.
@@ -40,6 +41,7 @@ async def get_portfolio(
     Raises:
         HTTPException: 500 if data fetching fails
     """
+    user_id = get_user_id_from_token(current_user)
     try:
         # Fetch positions from database
         response = supabase.table("portfolio_positions")\
@@ -64,11 +66,11 @@ async def get_portfolio(
         )
 
 
-@router.post("/api/portfolio", response_model=MessageResponse)
+@router.post("/api/portfolio", response_model=PortfolioAddResponse)
 async def add_position(
     position: PortfolioPositionCreate,
-    user_id: str,
-    supabase: Client = Depends(get_supabase)
+    current_user=Depends(get_current_user),
+    supabase: Client = Depends(get_supabase),
 ):
     """
     Add a new portfolio position.
@@ -78,7 +80,7 @@ async def add_position(
     
     Args:
         position: Position details (commodity, quantity, price, date, notes)
-        user_id: User identifier
+        current_user: Authenticated user (injected by dependency)
         supabase: Database client (injected by dependency)
         
     Returns:
@@ -87,6 +89,7 @@ async def add_position(
     Raises:
         HTTPException: 400 if validation fails, 500 if database operation fails
     """
+    user_id = get_user_id_from_token(current_user)
     try:
         data = {
             "user_id": user_id,
@@ -114,18 +117,18 @@ async def add_position(
 @router.delete("/api/portfolio/{position_id}", response_model=MessageResponse)
 async def delete_position(
     position_id: str,
-    user_id: str,
-    supabase: Client = Depends(get_supabase)
+    current_user=Depends(get_current_user),
+    supabase: Client = Depends(get_supabase),
 ):
     """
     Delete a portfolio position.
     
     Removes the specified position from the user's portfolio. Only the owner
-    of the position can delete it (enforced by user_id match).
+    of the position can delete it (enforced by user_id from token).
     
     Args:
         position_id: Position identifier (UUID)
-        user_id: User identifier (for authorization)
+        current_user: Authenticated user (injected by dependency)
         supabase: Database client (injected by dependency)
         
     Returns:
@@ -134,6 +137,7 @@ async def delete_position(
     Raises:
         HTTPException: 404 if position not found, 500 if deletion fails
     """
+    user_id = get_user_id_from_token(current_user)
     try:
         response = supabase.table("portfolio_positions")\
             .delete()\
@@ -141,8 +145,16 @@ async def delete_position(
             .eq("user_id", user_id)\
             .execute()
         
+        if not response.data or len(response.data) == 0:
+            raise HTTPException(
+                status_code=404,
+                detail="Position not found or you do not have permission to delete it"
+            )
+        
         return {"message": "Position deleted successfully"}
         
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(
             status_code=500,

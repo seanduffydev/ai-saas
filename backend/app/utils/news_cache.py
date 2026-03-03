@@ -1,20 +1,30 @@
-from datetime import datetime, timedelta
-from typing import List, Dict, Optional
+"""News cache utilities using Supabase for persistence."""
+
 import json
+from datetime import datetime, timedelta, timezone
+from typing import Dict, List, Optional
+
 
 class NewsCache:
-    """Manage news caching in Supabase"""
-    
+    """Manages news article caching in Supabase with configurable TTL."""
+
     def __init__(self, supabase_client):
-        self.supabase = supabase_client
-        self.cache_duration_hours = 4  # Cache for 4 hours
-    
-    def get_cached_news(self, commodity: str) -> Optional[List[Dict]]:
+        """Initialize the cache with a Supabase client.
+
+        Args:
+            supabase_client: Supabase Client instance for table access.
         """
-        Get cached news if available and not expired
-        
+        self.supabase = supabase_client
+        self.cache_duration_hours = 4
+
+    def get_cached_news(self, commodity: str) -> Optional[List[Dict]]:
+        """Return cached news for a commodity if present and not expired.
+
+        Args:
+            commodity: Commodity identifier (e.g. 'gold', 'all').
+
         Returns:
-            List of articles if cache is valid, None if cache miss/expired
+            List of article dicts if cache hit and valid; None on miss or expiry.
         """
         try:
             # Query cache
@@ -26,9 +36,12 @@ class NewsCache:
             
             cache_entry = result.data[0]
             
-            # Check if expired
-            expires_at = datetime.fromisoformat(cache_entry['expires_at'].replace('Z', '+00:00'))
-            now = datetime.now(expires_at.tzinfo)
+            # Check if expired (use UTC for both so comparison is correct)
+            raw = cache_entry['expires_at'].replace('Z', '+00:00')
+            expires_at = datetime.fromisoformat(raw)
+            if expires_at.tzinfo is None:
+                expires_at = expires_at.replace(tzinfo=timezone.utc)
+            now = datetime.now(timezone.utc)
             
             if now > expires_at:
                 print(f"Cache expired for {commodity}")
@@ -50,22 +63,22 @@ class NewsCache:
             return None
     
     def cache_news(self, commodity: str, articles: List[Dict], source: str = 'alpha_vantage'):
-        """
-        Cache news articles
-        
+        """Store news articles in cache for the given commodity.
+
         Args:
-            commodity: Commodity name
-            articles: List of article dictionaries
-            source: API source name
+            commodity: Commodity identifier to key the cache.
+            articles: List of article dicts to store.
+            source: Label for the API source (e.g. 'alpha_vantage').
         """
         try:
-            expires_at = datetime.utcnow() + timedelta(hours=self.cache_duration_hours)
+            now_utc = datetime.now(timezone.utc)
+            expires_at = now_utc + timedelta(hours=self.cache_duration_hours)
             
             cache_data = {
                 'commodity': commodity,
                 'articles': json.dumps(articles) if isinstance(articles, list) else articles,
                 'source': source,
-                'fetched_at': datetime.utcnow().isoformat(),
+                'fetched_at': now_utc.isoformat(),
                 'expires_at': expires_at.isoformat(),
                 'article_count': len(articles)
             }
@@ -79,24 +92,33 @@ class NewsCache:
             print(f"Error caching news: {str(e)}")
     
     def clear_cache(self, commodity: Optional[str] = None):
-        """
-        Clear cache for a specific commodity or all
-        
+        """Remove cached entries for one commodity or all.
+
         Args:
-            commodity: Specific commodity to clear, or None for all
+            commodity: Commodity to clear, or None to clear all entries.
         """
         try:
             if commodity:
                 self.supabase.table('news_cache').delete().eq('commodity', commodity).execute()
                 print(f"Cleared cache for {commodity}")
             else:
+                # Delete all: non-empty commodity first, then rows where commodity is null
                 self.supabase.table('news_cache').delete().neq('commodity', '').execute()
+                try:
+                    self.supabase.table('news_cache').delete().is_('commodity', 'null').execute()
+                except Exception:
+                    pass
                 print("Cleared all cache")
         except Exception as e:
             print(f"Error clearing cache: {str(e)}")
     
     def get_cache_stats(self) -> Dict:
-        """Get cache statistics"""
+        """Return summary statistics for cached news.
+
+        Returns:
+            Dict with 'total_cached_commodities', 'cache_entries' (list of
+            per-commodity stats). On error, may include 'error' key.
+        """
         try:
             result = self.supabase.table('news_cache').select('commodity, article_count, fetched_at, expires_at').execute()
             
@@ -106,8 +128,11 @@ class NewsCache:
             }
             
             for entry in result.data:
-                expires_at = datetime.fromisoformat(entry['expires_at'].replace('Z', '+00:00'))
-                now = datetime.now(expires_at.tzinfo)
+                raw = entry['expires_at'].replace('Z', '+00:00')
+                expires_at = datetime.fromisoformat(raw)
+                if expires_at.tzinfo is None:
+                    expires_at = expires_at.replace(tzinfo=timezone.utc)
+                now = datetime.now(timezone.utc)
                 is_valid = now < expires_at
                 
                 stats['cache_entries'].append({

@@ -1,0 +1,66 @@
+"""Tests for watchlist API endpoints."""
+
+import pytest
+from fastapi.testclient import TestClient
+
+
+def test_get_watchlist_empty(client: TestClient):
+    """GET /api/watchlist returns empty list when no items."""
+    response = client.get("/api/watchlist?user_id=user-1")
+    assert response.status_code == 200
+    assert response.json() == []
+
+
+def test_get_watchlist_with_items(client: TestClient, mock_supabase_with_watchlist):
+    """GET /api/watchlist returns user items."""
+    from app.main import app
+    from app.core.database import get_supabase
+    app.dependency_overrides[get_supabase] = lambda: mock_supabase_with_watchlist
+    with TestClient(app) as c:
+        response = c.get("/api/watchlist?user_id=u1")
+    assert response.status_code == 200
+    data = response.json()
+    assert len(data) == 1
+    assert data[0]["commodity_id"] == "gold"
+    app.dependency_overrides.pop(get_supabase, None)
+
+
+def test_add_to_watchlist(client: TestClient):
+    """POST /api/watchlist adds commodity."""
+    response = client.post(
+        "/api/watchlist?user_id=user-1",
+        json={"commodity_id": "silver"},
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert "message" in data
+    assert "added" in data["message"].lower() or "commodity" in data["message"].lower()
+
+
+def test_remove_from_watchlist(client: TestClient):
+    """DELETE /api/watchlist/gold removes commodity."""
+    response = client.delete("/api/watchlist/gold?user_id=user-1")
+    assert response.status_code == 200
+    assert "message" in response.json()
+
+
+def test_initialize_watchlist_empty(client: TestClient):
+    """POST /api/watchlist/initialize creates default items."""
+    response = client.post("/api/watchlist/initialize?user_id=new-user-1")
+    assert response.status_code == 200
+    data = response.json()
+    assert "data" in data
+    assert "message" in data
+
+
+def test_initialize_watchlist_already_has_items(client: TestClient, mock_supabase_with_watchlist):
+    """POST /api/watchlist/initialize when user has items returns existing."""
+    from app.main import app
+    from app.core.database import get_supabase
+    app.dependency_overrides[get_supabase] = lambda: mock_supabase_with_watchlist
+    with TestClient(app) as c:
+        response = c.post("/api/watchlist/initialize?user_id=u1")
+    assert response.status_code == 200
+    data = response.json()
+    assert "already initialized" in data["message"].lower() or len(data.get("data", [])) >= 1
+    app.dependency_overrides.pop(get_supabase, None)

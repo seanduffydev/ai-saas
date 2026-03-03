@@ -5,20 +5,21 @@ from typing import List
 from supabase import Client
 
 from app.schemas.watchlist import (
-    WatchlistItemCreate, 
+    WatchlistItemCreate,
     WatchlistItem,
-    WatchlistInitializeResponse
+    WatchlistInitializeResponse,
+    WatchlistAddResponse,
 )
 from app.schemas.common import MessageResponse
-from app.api.v1.deps import get_supabase
+from app.api.v1.deps import get_supabase, get_current_user, get_user_id_from_token
 
 router = APIRouter()
 
 
 @router.get("/api/watchlist", response_model=List[WatchlistItem])
 async def get_watchlist(
-    user_id: str,
-    supabase: Client = Depends(get_supabase)
+    current_user=Depends(get_current_user),
+    supabase: Client = Depends(get_supabase),
 ):
     """
     Get user's watchlist commodities ordered by preference.
@@ -27,7 +28,7 @@ async def get_watchlist(
     they specified. New users will have an empty list until initialization.
     
     Args:
-        user_id: User identifier
+        current_user: Authenticated user (injected by dependency)
         supabase: Database client (injected by dependency)
         
     Returns:
@@ -36,6 +37,7 @@ async def get_watchlist(
     Raises:
         HTTPException: 500 if data fetching fails
     """
+    user_id = get_user_id_from_token(current_user)
     try:
         response = supabase.table("watchlist_preferences")\
             .select("*")\
@@ -52,11 +54,11 @@ async def get_watchlist(
         )
 
 
-@router.post("/api/watchlist", response_model=MessageResponse)
+@router.post("/api/watchlist", response_model=WatchlistAddResponse)
 async def add_to_watchlist(
     item: WatchlistItemCreate,
-    user_id: str,
-    supabase: Client = Depends(get_supabase)
+    current_user=Depends(get_current_user),
+    supabase: Client = Depends(get_supabase),
 ):
     """
     Add a commodity to user's watchlist.
@@ -66,7 +68,7 @@ async def add_to_watchlist(
     
     Args:
         item: Watchlist item with commodity_id
-        user_id: User identifier
+        current_user: Authenticated user (injected by dependency)
         supabase: Database client (injected by dependency)
         
     Returns:
@@ -75,6 +77,7 @@ async def add_to_watchlist(
     Raises:
         HTTPException: 400 if commodity already in watchlist, 500 for other errors
     """
+    user_id = get_user_id_from_token(current_user)
     try:
         # Get current max order_index for this user
         existing = supabase.table("watchlist_preferences")\
@@ -118,18 +121,18 @@ async def add_to_watchlist(
 @router.delete("/api/watchlist/{commodity_id}", response_model=MessageResponse)
 async def remove_from_watchlist(
     commodity_id: str,
-    user_id: str,
-    supabase: Client = Depends(get_supabase)
+    current_user=Depends(get_current_user),
+    supabase: Client = Depends(get_supabase),
 ):
     """
     Remove a commodity from user's watchlist.
     
     Deletes the specified commodity from the user's watchlist. Only the owner
-    can remove items from their watchlist (enforced by user_id match).
+    can remove items (enforced by user_id from token).
     
     Args:
         commodity_id: Commodity identifier to remove
-        user_id: User identifier (for authorization)
+        current_user: Authenticated user (injected by dependency)
         supabase: Database client (injected by dependency)
         
     Returns:
@@ -138,6 +141,7 @@ async def remove_from_watchlist(
     Raises:
         HTTPException: 500 if deletion fails
     """
+    user_id = get_user_id_from_token(current_user)
     try:
         response = supabase.table("watchlist_preferences")\
             .delete()\
@@ -156,21 +160,20 @@ async def remove_from_watchlist(
 
 @router.post("/api/watchlist/initialize", response_model=WatchlistInitializeResponse)
 async def initialize_watchlist(
-    user_id: str,
-    supabase: Client = Depends(get_supabase)
+    current_user=Depends(get_current_user),
+    supabase: Client = Depends(get_supabase),
 ):
     """
     Initialize default watchlist for new user.
     
     Creates a default watchlist with three commodities: Gold, Silver, and Crude Oil.
-    This is automatically called for new users when they first access their watchlist.
     If the user already has items, this endpoint returns the existing items.
 
     Note: This is NOT automatically called. Users start with empty watchlists
     and manually add commodities as needed.
     
     Args:
-        user_id: User identifier
+        current_user: Authenticated user (injected by dependency)
         supabase: Database client (injected by dependency)
         
     Returns:
@@ -179,6 +182,7 @@ async def initialize_watchlist(
     Raises:
         HTTPException: 500 if initialization fails
     """
+    user_id = get_user_id_from_token(current_user)
     try:
         # Check if user already has watchlist items
         existing = supabase.table("watchlist_preferences")\

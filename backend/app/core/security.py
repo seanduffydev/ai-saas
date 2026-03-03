@@ -1,6 +1,6 @@
-"""Authentication and authorization"""
+"""Authentication and authorization via Supabase JWT."""
 
-from fastapi import HTTPException, Depends
+from fastapi import Depends, HTTPException
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from supabase import Client
 

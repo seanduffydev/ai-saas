@@ -1,11 +1,14 @@
-"""API version 1 routes"""
+"""API version 1 router aggregation.
+
+Mounts all v1 endpoint routers: commodities, forecast, news, portfolio, watchlist.
+"""
 
 from fastapi import APIRouter
+
 from app.api.v1.endpoints import commodities, forecast, news, portfolio, watchlist
 
 api_router = APIRouter()
 
-# Include all endpoint routers
 api_router.include_router(commodities.router, tags=["commodities"])
 api_router.include_router(forecast.router, tags=["forecast"])
 api_router.include_router(news.router, tags=["news"])
