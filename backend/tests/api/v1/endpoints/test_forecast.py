@@ -34,9 +34,7 @@ def test_forecast_requires_auth(client: TestClient):
             "period": "1y",
         },
     )
-    assert (
-        response.status_code == 403
-    )  # FastAPI HTTPBearer returns 403 when no auth header
+    assert response.status_code == 401
 
 
 def test_forecast_success(client: TestClient, auth_headers, small_historical_df):

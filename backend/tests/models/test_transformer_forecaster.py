@@ -41,5 +41,7 @@ def test_predict_returns_list():
 def test_predict_insufficient_prices_raises():
     """predict() with fewer than window_size prices raises ValueError."""
     forecaster = TransformerForecaster(window_size=5, forecast_horizon=3)
+    train_prices = [100.0 + i for i in range(20)]
+    forecaster.train(train_prices, epochs=1)
     with pytest.raises(ValueError, match="Need at least 5 recent prices"):
         forecaster.predict([100.0, 101.0])
