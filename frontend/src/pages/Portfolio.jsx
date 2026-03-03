@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { supabase } from '../supabaseClient';
@@ -32,19 +32,6 @@ function Portfolio() {
     checkUser();
   }, []);
 
-  useEffect(() => {
-    if (user) {
-      fetchPortfolio();
-    }
-  }, [user]);
-
-  useEffect(() => {
-    if (location.state?.openAddForm === true) {
-      setShowAddForm(true);
-      navigate('/portfolio', { replace: true, state: {} });
-    }
-  }, [location.state, navigate]);
-
   const checkUser = async () => {
     const { data: { session } } = await supabase.auth.getSession();
     setUser(session?.user || null);
@@ -55,7 +42,7 @@ function Portfolio() {
     return session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {};
   };
 
-  const fetchPortfolio = async () => {
+  const fetchPortfolio = useCallback(async () => {
     try {
       setLoading(true);
       const headers = await getAuthHeaders();
@@ -66,7 +53,20 @@ function Portfolio() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [API_URL]);
+
+  useEffect(() => {
+    if (user) {
+      fetchPortfolio();
+    }
+  }, [user, fetchPortfolio]);
+
+  useEffect(() => {
+    if (location.state?.openAddForm === true) {
+      setShowAddForm(true);
+      navigate('/portfolio', { replace: true, state: {} });
+    }
+  }, [location.state, navigate]);
 
   const handleInputChange = (e) => {
     setFormData({
