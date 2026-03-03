@@ -1,0 +1,27 @@
+# Dependencies and local env
+.venv
+venv
+.env
+.env.*
+!.env.example
+
+# Build and test
+__pycache__
+*.pyc
+.pytest_cache
+.coverage
+htmlcov
+tests
+
+# Config and docs (not needed in image)
+*.md
+pytest.ini
+pyproject.toml
+requirements-dev.txt
+railway.json
+Procfile
+start.sh
+
+# Git
+.git
+.gitignore
