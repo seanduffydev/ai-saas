@@ -69,7 +69,13 @@ def mock_supabase():
 def mock_supabase_with_watchlist():
     return _make_mock_supabase(
         watchlist_data=[
-            {"id": "1", "user_id": "u1", "commodity_id": "gold", "order_index": 0},
+            {
+                "id": "1",
+                "user_id": "u1",
+                "commodity_id": "gold",
+                "order_index": 0,
+                "added_at": "2024-01-01T00:00:00Z",
+            },
         ]
     )
 
@@ -85,6 +91,7 @@ def mock_supabase_with_portfolio():
                 "quantity": 10,
                 "purchase_price": 1900.0,
                 "purchase_date": "2024-01-01",
+                "notes": None,
             }
         ]
     )

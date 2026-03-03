@@ -51,11 +51,17 @@ def test_add_position(client: TestClient, auth_headers):
     assert "message" in data
 
 
-def test_delete_position(client: TestClient, auth_headers):
+def test_delete_position(client: TestClient, auth_headers, mock_supabase_with_portfolio):
     """DELETE /api/portfolio/{id} returns success."""
-    response = client.delete(
-        "/api/portfolio/some-uuid",
-        headers=auth_headers,
-    )
+    from app.core.database import get_supabase
+    from app.main import app
+
+    app.dependency_overrides[get_supabase] = lambda: mock_supabase_with_portfolio
+    with TestClient(app) as c:
+        response = c.delete(
+            "/api/portfolio/pos-1",
+            headers=auth_headers,
+        )
     assert response.status_code == 200
     assert "message" in response.json()
+    app.dependency_overrides.pop(get_supabase, None)
